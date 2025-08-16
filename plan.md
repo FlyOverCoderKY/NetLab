@@ -198,10 +198,16 @@ export type OutMsg =
 3. Mode switcher (dropdown) that updates store.
 
 **Deliverables**
-- Switching tabs/modes updates UI without reload.
+- Switching tabs/modes updates UI without reload. ✅ Completed.
 
 **DoD**
-- State persists during navigation; TS types enforced.
+- State persists during navigation; TS types enforced. ✅ Types enforced via `useAppStore`; state retained during tab switches.
+
+Current:
+- Added `src/state/store.ts` with `mode`, `tab`, `dataset`, `training` and actions.
+- Added `ui/components/Tabs.tsx` and `ui/routes.tsx`; wired into `App.tsx`.
+- Added `ui/components/ModeSwitcher.tsx` in header.
+- Refactored `DatasetPanel` to read/write global dataset params.
 
 ---
 
@@ -216,10 +222,17 @@ export type OutMsg =
 6. Use transferable objects when posting arrays (`postMessage(arr, [arr.buffer])`).
 
 **Deliverables**
-- Worker replies `ready`; switching backend emits status.
+- Worker replies `ready`; switching backend emits status. ✅ Basic init/ready implemented.
+- Compile/Run/Step/Pause message handling with simulated metrics and throttling. ✅ Implemented.
 
 **DoD**
-- No console errors; worker survives hot reload.
+- No console errors; worker survives hot reload. ✅ Initial smoke via `TrainerStatus`.
+
+Current:
+- Added `src/worker/messages.ts` (schema) and `src/worker/trainer.ts` with compile/run/step/pause and simulated metrics; signals `ready` immediately for scaffolding.
+- Added `src/worker/client.ts` singleton `TrainerClient` to abstract messaging.
+- `TrainerStatus` now uses the client; `TrainPanel` wired to compile/run/pause/step and consumes worker `metrics`/`done` events.
+- Next: verify WASM asset resolution when TF.js is enabled in worker; convert to transferable typed arrays for future visuals.
 
 ---
 
@@ -237,6 +250,10 @@ export type OutMsg =
 
 **DoD**
 - One `trainStep` reduces loss on a synthetic tiny batch (overfit sanity check).
+
+Current:
+- Added `src/models/types.ts` with `TeachModel` and `Visuals` definitions. ✅
+- Added `src/models/softmax.ts` with a minimal `Flatten → Dense(36)` model and stubbed training/eval. Compilation works; real batch wiring pending. 🚧
 
 ---
 
@@ -267,6 +284,9 @@ export type OutMsg =
 
 **DoD**
 - Pause works; step-through performs exactly one update; no UI jank.
+
+Current:
+- Added `TrainPanel` with Start/Pause/Step and a lightweight Canvas chart that simulates decreasing loss for UI scaffolding. Real loop will be driven by the worker in Phase 6 implementation. 🚧
 
 ---
 

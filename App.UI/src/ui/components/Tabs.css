@@ -1,0 +1,47 @@
+.tabs-nav {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel-background);
+}
+
+.tabs-list {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.tab-btn {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-bottom-color: var(--color-border);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--color-foreground-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--theme-transition-duration)
+      var(--theme-transition-timing),
+    color var(--theme-transition-duration) var(--theme-transition-timing),
+    border-color var(--theme-transition-duration) var(--theme-transition-timing),
+    box-shadow var(--theme-transition-duration) var(--theme-transition-timing);
+}
+
+.tab-btn:hover {
+  background: var(--color-hover-strong);
+  color: var(--color-foreground);
+}
+
+.tab-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.tab-btn[aria-current="page"] {
+  background: var(--color-page-background);
+  color: var(--color-foreground);
+  border-color: var(--color-border-strong);
+  border-bottom-color: transparent;
+  box-shadow: 0 -1px 0 0 var(--color-page-background) inset;
+  font-weight: 600;
+}

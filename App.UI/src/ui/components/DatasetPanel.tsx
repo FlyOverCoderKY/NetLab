@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   CLASS_LIST,
   renderGlyphTo28x28,
   waitForFontsReady,
 } from "../../data/generator";
 import { XorShift32 } from "../../data/seed";
+import { useAppStore } from "../../state/store";
 
 const cellSize = 32;
 
@@ -32,13 +33,8 @@ const Slider: React.FC<{
 );
 
 const DatasetPanel: React.FC = () => {
-  const [seed, setSeed] = useState<number>(1234);
-  const [fontSize, setFontSize] = useState<number>(20);
-  const [thickness, setThickness] = useState<number>(20);
-  const [jitterPx, setJitterPx] = useState<number>(1);
-  const [rotationDeg, setRotationDeg] = useState<number>(4);
-  const [invert, setInvert] = useState<boolean>(false);
-  const [noise, setNoise] = useState<boolean>(false);
+  const dataset = useAppStore((s) => s.dataset);
+  const setDataset = useAppStore((s) => s.setDataset);
 
   useEffect(() => {
     waitForFontsReady().catch(() => void 0);
@@ -46,23 +42,23 @@ const DatasetPanel: React.FC = () => {
 
   const params = useMemo(
     () => ({
-      fontFamily: "Inter",
-      fontSize,
-      thickness,
-      jitterPx,
-      rotationDeg,
-      invert,
-      noise,
+      fontFamily: dataset.fontFamily,
+      fontSize: dataset.fontSize,
+      thickness: dataset.thickness,
+      jitterPx: dataset.jitterPx,
+      rotationDeg: dataset.rotationDeg,
+      invert: dataset.invert,
+      noise: dataset.noise,
     }),
-    [fontSize, thickness, jitterPx, rotationDeg, invert, noise],
+    [dataset],
   );
 
   const grid = useMemo(() => {
-    const rng = new XorShift32(seed);
+    const rng = new XorShift32(dataset.seed);
     return CLASS_LIST.slice(0, 36).map((ch) =>
       renderGlyphTo28x28(ch, params, rng),
     );
-  }, [seed, params]);
+  }, [dataset.seed, params]);
 
   return (
     <section style={{ padding: "1rem" }}>
@@ -81,54 +77,54 @@ const DatasetPanel: React.FC = () => {
             min={0}
             max={10000}
             step={1}
-            value={seed}
-            onChange={setSeed}
+            value={dataset.seed}
+            onChange={(v) => setDataset({ seed: v })}
           />
           <Slider
             label="Font Size"
             min={10}
             max={28}
             step={1}
-            value={fontSize}
-            onChange={setFontSize}
+            value={dataset.fontSize}
+            onChange={(v) => setDataset({ fontSize: v })}
           />
           <Slider
             label="Thickness"
             min={8}
             max={28}
             step={1}
-            value={thickness}
-            onChange={setThickness}
+            value={dataset.thickness}
+            onChange={(v) => setDataset({ thickness: v })}
           />
           <Slider
             label="Jitter (px)"
             min={0}
             max={3}
             step={1}
-            value={jitterPx}
-            onChange={setJitterPx}
+            value={dataset.jitterPx}
+            onChange={(v) => setDataset({ jitterPx: v })}
           />
           <Slider
             label="Rotation (±deg)"
             min={0}
             max={15}
             step={1}
-            value={rotationDeg}
-            onChange={setRotationDeg}
+            value={dataset.rotationDeg}
+            onChange={(v) => setDataset({ rotationDeg: v })}
           />
           <label style={{ display: "block", marginTop: 8 }}>
             <input
               type="checkbox"
-              checked={invert}
-              onChange={(e) => setInvert(e.target.checked)}
+              checked={dataset.invert}
+              onChange={(e) => setDataset({ invert: e.target.checked })}
             />{" "}
             Invert
           </label>
           <label style={{ display: "block", marginTop: 8 }}>
             <input
               type="checkbox"
-              checked={noise}
-              onChange={(e) => setNoise(e.target.checked)}
+              checked={dataset.noise}
+              onChange={(e) => setDataset({ noise: e.target.checked })}
             />{" "}
             Noise
           </label>
