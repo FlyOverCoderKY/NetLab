@@ -5,6 +5,7 @@ import TrainPanel from "./components/TrainPanel";
 import PlaygroundPanel from "./components/PlaygroundPanel";
 import AnatomyPanel from "./components/AnatomyPanel";
 import MathPanel from "./components/MathPanel";
+import OCRPanel from "./components/OCRPanel";
 
 export const RoutesView: React.FC = () => {
   const tab = useAppStore((s) => s.tab);
@@ -31,6 +32,9 @@ export const RoutesView: React.FC = () => {
         aria-hidden={!isActive("train")}
       >
         <TrainPanel />
+      </div>
+      <div style={panelStyle(isActive("ocr"))} aria-hidden={!isActive("ocr")}>
+        <OCRPanel />
       </div>
       <div
         style={panelStyle(isActive("anatomy"))}

@@ -1,7 +1,13 @@
 import { create } from "zustand";
 
 export type AppMode = "softmax" | "mlp" | "cnn";
-export type AppTab = "playground" | "train" | "anatomy" | "math" | "dataset";
+export type AppTab =
+  | "playground"
+  | "train"
+  | "anatomy"
+  | "math"
+  | "dataset"
+  | "ocr";
 
 export type DatasetParams = {
   seed: number;

@@ -5,6 +5,7 @@ import { AppTab, useAppStore } from "../../state/store";
 const tabs: { id: AppTab; label: string }[] = [
   { id: "playground", label: "Playground" },
   { id: "dataset", label: "Dataset" },
+  { id: "ocr", label: "OCR" },
   { id: "train", label: "Train" },
   { id: "anatomy", label: "Anatomy" },
   { id: "math", label: "Math" },
