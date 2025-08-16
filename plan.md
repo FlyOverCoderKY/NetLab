@@ -427,6 +427,9 @@ export type OutMsg =
 **DoD**
 - Failing gradient sanity test blocks PRs.
 
+Current:
+- CI configured to run lint and build, and deploy to Azure Static Web Apps on pushes/PRs. Tests to be added.
+
 ---
 
 ### Phase 17 — Docs & Deploy
@@ -439,8 +442,10 @@ export type OutMsg =
 3. Version the demo checkpoints and dataset seeds.
 
 **Deliverables**
-- Public URL; first-time load < 2MB gzipped (code-split models).
+- Public URL; first-time load < 2MB gzipped (code-split models). ✅ Deployed at netlab.flyovercoder.com.
 
 **DoD**
 - Cold load ≤ 3s on mid hardware; offline via PWA cache (optional).
+Current:
+- Deployed via GitHub Actions to Azure Static Web Apps with prebuilt `dist` artifacts.
 
