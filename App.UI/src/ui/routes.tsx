@@ -8,18 +8,39 @@ import MathPanel from "./components/MathPanel";
 
 export const RoutesView: React.FC = () => {
   const tab = useAppStore((s) => s.tab);
-  switch (tab) {
-    case "playground":
-      return <PlaygroundPanel />;
-    case "dataset":
-      return <DatasetPanel />;
-    case "train":
-      return <TrainPanel />;
-    case "anatomy":
-      return <AnatomyPanel />;
-    case "math":
-      return <MathPanel />;
-    default:
-      return null;
-  }
+  const isActive = (t: string) => tab === (t as typeof tab);
+  const panelStyle = (active: boolean) => ({
+    display: active ? "block" : "none",
+  });
+  return (
+    <div>
+      <div
+        style={panelStyle(isActive("playground"))}
+        aria-hidden={!isActive("playground")}
+      >
+        <PlaygroundPanel />
+      </div>
+      <div
+        style={panelStyle(isActive("dataset"))}
+        aria-hidden={!isActive("dataset")}
+      >
+        <DatasetPanel />
+      </div>
+      <div
+        style={panelStyle(isActive("train"))}
+        aria-hidden={!isActive("train")}
+      >
+        <TrainPanel />
+      </div>
+      <div
+        style={panelStyle(isActive("anatomy"))}
+        aria-hidden={!isActive("anatomy")}
+      >
+        <AnatomyPanel />
+      </div>
+      <div style={panelStyle(isActive("math"))} aria-hidden={!isActive("math")}>
+        <MathPanel />
+      </div>
+    </div>
+  );
 };

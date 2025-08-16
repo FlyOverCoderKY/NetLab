@@ -87,41 +87,6 @@ const PlaygroundPanel: React.FC = () => {
       >
         <div>
           <Canvas28 data={sample} />
-          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-            <button onClick={() => setIdx((i) => (i + 1) % CLASS_LIST.length)}>
-              Next
-            </button>
-            <button onClick={predict}>Predict</button>
-            <label
-              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              <input
-                type="checkbox"
-                checked={auto}
-                onChange={(e) => setAuto(e.target.checked)}
-              />
-              <span>Auto-cycle</span>
-            </label>
-            <label
-              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              <span>Every</span>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={intervalSec}
-                onChange={(e) =>
-                  setIntervalSec(
-                    Math.max(1, Math.min(10, Number(e.target.value) || 1)),
-                  )
-                }
-                style={{ width: 48 }}
-                aria-label="Auto-cycle interval seconds"
-              />
-              <span>s</span>
-            </label>
-          </div>
         </div>
         <div>
           <h4>Top-5</h4>
@@ -160,6 +125,45 @@ const PlaygroundPanel: React.FC = () => {
             </ul>
           )}
         </div>
+      </div>
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <button onClick={() => setIdx((i) => (i + 1) % CLASS_LIST.length)}>
+          Next
+        </button>
+        <button onClick={predict}>Predict</button>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={auto}
+            onChange={(e) => setAuto(e.target.checked)}
+          />
+          <span>Auto-cycle</span>
+        </label>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span>Every</span>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={intervalSec}
+            onChange={(e) =>
+              setIntervalSec(
+                Math.max(1, Math.min(10, Number(e.target.value) || 1)),
+              )
+            }
+            style={{ width: 48 }}
+            aria-label="Auto-cycle interval seconds"
+          />
+          <span>s</span>
+        </label>
       </div>
     </section>
   );
