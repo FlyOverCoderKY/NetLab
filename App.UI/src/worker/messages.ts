@@ -24,7 +24,8 @@ export type OutMsg =
   | { type: "ready" }
   | { type: "compiled"; payload: { params: number } }
   | { type: "metrics"; payload: { step: number; loss: number; acc?: number } }
-  | { type: "visuals"; payload: unknown }
+  | { type: "visuals"; payload: import("../models/types").Visuals }
+  | { type: "confusion"; payload: { labels: string[]; matrix: number[][] } }
   | { type: "weights"; payload: unknown }
   | { type: "error"; payload: { message: string } }
   | { type: "prediction"; payload: { probs: Float32Array } }

@@ -2,18 +2,20 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../state/store";
 import { getTrainerClient } from "../../worker/client";
 
-type Metric = { step: number; loss: number };
+type Metric = { step: number; loss: number; acc?: number };
 
 const TrainPanel: React.FC = () => {
   const training = useAppStore((s) => s.training);
   const [running, setRunning] = useState(false);
   const [metrics, setMetrics] = useState<Metric[]>([]);
 
+  const mode = useAppStore((s) => s.mode);
+
   const start = () => {
     if (running) return;
     const client = getTrainerClient();
     client.compile({
-      modelType: "softmax",
+      modelType: mode,
       seed: 1234,
       batchSize: training.batchSize,
       learningRate: training.learningRate,
@@ -32,7 +34,7 @@ const TrainPanel: React.FC = () => {
   const stepOnce = () => {
     const client = getTrainerClient();
     client.compile({
-      modelType: "softmax",
+      modelType: mode,
       seed: 1234,
       batchSize: training.batchSize,
       learningRate: training.learningRate,
@@ -46,8 +48,8 @@ const TrainPanel: React.FC = () => {
 
   useEffect(() => {
     const client = getTrainerClient();
-    const offM = client.on("metrics", ({ step, loss }) => {
-      setMetrics((m) => [...m, { step, loss }].slice(-500));
+    const offM = client.on("metrics", ({ step, loss, acc }) => {
+      setMetrics((m) => [...m, { step, loss, acc }].slice(-500));
     });
     const offD = client.on("done", () => setRunning(false));
     return () => {
@@ -79,12 +81,17 @@ const TrainPanel: React.FC = () => {
           Step
         </button>
         <span style={{ color: "var(--color-foreground-subtle)" }}>
+          Mode {mode}
+        </span>
+        <span style={{ color: "var(--color-foreground-subtle)" }}>
           LR {training.learningRate} · Batch {training.batchSize} · Optimizer{" "}
           {training.optimizer}
         </span>
       </div>
       <div aria-live="polite">
-        {last ? `Step ${last.step} — Loss ${last.loss.toFixed(4)}` : "Idle"}
+        {last
+          ? `Step ${last.step} — Loss ${last.loss.toFixed(4)}${last.acc != null ? ` — Acc ${(last.acc * 100).toFixed(1)}%` : ""}`
+          : "Idle"}
       </div>
       <MiniChart data={metrics} />
     </section>

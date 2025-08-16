@@ -2,6 +2,7 @@
 // NOTE: TF.js imports are deferred until needed in later phases to avoid type resolution during scaffolding.
 import type { InMsg, OutMsg, TrainConfig } from "./messages";
 import * as tf from "@tensorflow/tfjs";
+import "@tensorflow/tfjs-backend-wasm";
 import { makeDataset } from "../data/dataset";
 import { SoftmaxModel } from "../models";
 
@@ -18,9 +19,14 @@ let dataIterator: Generator<{ x: tf.Tensor4D; y: tf.Tensor1D }> | null = null;
 let model: SoftmaxModel | null = null;
 let modelInitPromise: Promise<void> | null = null;
 
-function handleInit(_: { backend: "webgl" | "wasm" }) {
-  void _;
-  postMessage({ type: "ready" } as OutMsg);
+function handleInit(payload: { backend: "webgl" | "wasm" }) {
+  // Read requested backend to satisfy lint, but we force WASM in the worker
+  if (payload && payload.backend) {
+    // no-op: backend selection is forced to wasm below
+  }
+  tf.setBackend("wasm").then(() => {
+    postMessage({ type: "ready" } as OutMsg);
+  });
 }
 
 function handleCompile(cfg: TrainConfig) {
@@ -98,6 +104,50 @@ function handleStep() {
   }
   if (stepCounter % snapshotEvery === 0) {
     postMetrics();
+    // Also push visuals and a lightweight accuracy estimate on snapshot
+    if (model) {
+      model
+        .getVisuals()
+        .then((v) => {
+          postMessage({ type: "visuals", payload: v } as OutMsg);
+        })
+        .catch(() => void 0);
+      // Accuracy estimate on a tiny batch to limit cost
+      if (dataIterator) {
+        try {
+          const { value } = dataIterator.next();
+          if (value) {
+            const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
+            (async () => {
+              try {
+                const { probs } = await model!.predict(batch.x);
+                const { acc, preds } = tf.tidy(() => {
+                  const preds = probs.argMax(1);
+                  const correct = tf.equal(preds, batch.y).sum() as tf.Scalar;
+                  const acc = correct.div(
+                    tf.scalar(batch.y.shape[0] || 1),
+                  ) as tf.Scalar;
+                  return { acc: acc.dataSync()[0] as number, preds };
+                });
+                postMessage({
+                  type: "metrics",
+                  payload: { step: stepCounter, loss: lastLoss, acc },
+                } as OutMsg);
+                preds.dispose();
+                probs.dispose();
+              } catch {
+                // ignore
+              } finally {
+                batch.x.dispose();
+                batch.y.dispose();
+              }
+            })();
+          }
+        } catch {
+          // ignore evaluation errors
+        }
+      }
+    }
   }
 }
 

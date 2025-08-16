@@ -5,25 +5,24 @@ import { getTrainerClient } from "../../worker/client";
 type WeightTile = { name: string; grid: number[][] };
 
 const AnatomyPanel: React.FC = () => {
-  const [tiles] = useState<WeightTile[]>([]);
+  const [tiles, setTiles] = useState<WeightTile[]>([]);
 
   useEffect(() => {
     const c = getTrainerClient();
-    const onVisuals = c.on("metrics", () => {
-      // Request visuals periodically via a side-channel if implemented later
+    const offVis = c.on("visuals", (payload: { weights?: WeightTile[] }) => {
+      if (payload?.weights) setTiles(payload.weights);
     });
-    return () => onVisuals();
+    return () => {
+      offVis();
+    };
   }, []);
-
-  // Placeholder: request visuals via direct call from worker model when available
-  // For now, render nothing until we add a message to fetch visuals.
 
   return (
     <section style={{ padding: "1rem" }}>
       <h3>Anatomy</h3>
       {tiles.length === 0 ? (
         <p style={{ color: "var(--color-foreground-subtle)" }}>
-          Visuals will appear here as we wire up weight exports from the worker.
+          Start training to stream weight tiles.
         </p>
       ) : (
         <div

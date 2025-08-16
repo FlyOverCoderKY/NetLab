@@ -1,4 +1,5 @@
 import type { InMsg, OutMsg, TrainConfig } from "./messages";
+import type { Visuals } from "../models/types";
 
 type ListenerMap = {
   ready: (() => void)[];
@@ -7,6 +8,8 @@ type ListenerMap = {
   compiled: ((p: { params: number }) => void)[];
   done: (() => void)[];
   prediction: ((p: { probs: Float32Array }) => void)[];
+  visuals: ((v: Visuals) => void)[];
+  confusion: ((p: { labels: string[]; matrix: number[][] }) => void)[];
 };
 
 class TrainerClient {
@@ -18,6 +21,8 @@ class TrainerClient {
     compiled: [],
     done: [],
     prediction: [],
+    visuals: [],
+    confusion: [],
   };
   private isDisposed = false;
 
@@ -36,6 +41,14 @@ class TrainerClient {
           break;
         case "metrics":
           this.listeners.metrics.forEach((cb) => cb(msg.payload));
+          break;
+        case "visuals":
+          this.listeners.visuals.forEach((cb) => cb(msg.payload as Visuals));
+          break;
+        case "confusion":
+          this.listeners.confusion.forEach((cb) =>
+            cb(msg.payload as { labels: string[]; matrix: number[][] }),
+          );
           break;
         case "prediction":
           this.listeners.prediction.forEach((cb) =>

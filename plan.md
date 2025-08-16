@@ -229,7 +229,7 @@ Current:
 - No console errors; worker survives hot reload. ✅ Initial smoke via `TrainerStatus`.
 
 Current:
-- Added `src/worker/messages.ts` (schema) and `src/worker/trainer.ts` with compile/run/step/pause and simulated metrics; signals `ready` immediately for scaffolding.
+- Added `src/worker/messages.ts` (schema) and `src/worker/trainer.ts` with compile/run/step/pause and simulated metrics; initializes TF.js to WASM in the worker and signals `ready` after backend set.
 - Added `src/worker/client.ts` singleton `TrainerClient` to abstract messaging.
 - `TrainerStatus` now uses the client; `TrainPanel` wired to compile/run/pause/step and consumes worker `metrics`/`done` events.
 - Next: verify WASM asset resolution when TF.js is enabled in worker; convert to transferable typed arrays for future visuals.
@@ -290,8 +290,8 @@ Current:
 - Pause works; step-through performs exactly one update; no UI jank.
 
 Current:
-- Added `TrainPanel` with Start/Pause/Step and a lightweight Canvas chart that simulates decreasing loss for UI scaffolding. Real loop will be driven by the worker in Phase 6 implementation. 🚧
-- Worker now implements `compile/run/step/pause` with throttled metrics and consumes generated batches per step. Loss is produced by calling `softmax.trainStep` per batch. ✅
+- `TrainPanel` wired to real worker metrics; Canvas chart shows loss. ✅
+- Worker posts metrics every snapshot and now also streams visuals; mini-batch accuracy is computed occasionally and shown in `TrainPanel`. ✅
 
 ---
 
@@ -330,7 +330,7 @@ Current:
 Current:
 - Added `Heatmap` component to render 28×28 grids with grayscale scaling. ✅
 - Implemented `SoftmaxModel.getVisuals()` to produce per-class 28×28 normalized tiles from Dense kernel weights. ✅
-- Added `AnatomyPanel` scaffold that will display tiles – message wiring from worker pending. 🚧
+- Worker emits `visuals` messages on snapshots; client forwards them; `AnatomyPanel` subscribes and renders tiles. ✅
 
 ---
 
@@ -347,6 +347,9 @@ Current:
 
 **DoD**
 - Matrix re-renders smoothly; evaluation runs on worker thread.
+
+Current:
+- Worker computes and reports a small-batch accuracy during snapshots and it's displayed in `TrainPanel`. Confusion matrix UI/data wiring is pending. 🚧
 
 ---
 
