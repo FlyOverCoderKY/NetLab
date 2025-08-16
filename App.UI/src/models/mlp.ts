@@ -5,6 +5,8 @@ export class MLPModel implements TeachModel {
   name = "mlp" as const;
   inputShape: [number, number, number] = [28, 28, 1];
   private model: tf.LayersModel | null = null;
+  private learningRate = 0.01;
+  private optimizerType: "sgd" | "adam" = "sgd";
 
   async init(): Promise<void> {
     const m = tf.sequential();
@@ -28,7 +30,9 @@ export class MLPModel implements TeachModel {
     y: tf.Tensor1D;
   }): Promise<{ loss: number; visuals?: Visuals }> {
     if (!this.model) throw new Error("Model not initialized");
-    const optimizer = tf.train.sgd(0.01);
+    const lr = this.learningRate;
+    const optimizer =
+      this.optimizerType === "adam" ? tf.train.adam(lr) : tf.train.sgd(lr);
     let lossValue = 0;
     optimizer.minimize(() => {
       const logits = this.model!.predict(batch.x) as tf.Tensor2D;
@@ -91,15 +95,64 @@ export class MLPModel implements TeachModel {
 
   async serialize(): Promise<Record<string, unknown>> {
     if (!this.model) return {};
-    return { name: this.name, inputShape: this.inputShape };
+    const layers = [] as Array<{
+      type: string;
+      weights: { shape: number[]; data: number[] }[];
+    }>;
+    for (const layer of this.model.layers) {
+      const tensors = layer.getWeights();
+      if (!tensors.length) continue;
+      const weights: { shape: number[]; data: number[] }[] = [];
+      for (const t of tensors) {
+        const shape = t.shape.slice();
+        const data = Array.from((await t.data()) as Float32Array);
+        weights.push({ shape, data });
+      }
+      layers.push({ type: layer.getClassName(), weights });
+    }
+    return { name: this.name, inputShape: this.inputShape, layers };
   }
 
   async load(_: Record<string, unknown>): Promise<void> {
-    void _;
+    if (!this.model) await this.init();
+    const state = _ as {
+      layers?: Array<{
+        type: string;
+        weights: { shape: number[]; data: number[] }[];
+      }>;
+    };
+    if (!state?.layers) return;
+    const tensorsPerLayer: tf.Tensor[] = [];
+    for (const layerState of state.layers) {
+      for (const w of layerState.weights) {
+        tensorsPerLayer.push(tf.tensor(w.data, w.shape as number[], "float32"));
+      }
+    }
+    const perLayer: tf.Tensor[][] = [];
+    let idx = 0;
+    for (const layer of this.model!.layers) {
+      const expect = layer.getWeights().length;
+      if (expect === 0) continue;
+      perLayer.push(tensorsPerLayer.slice(idx, idx + expect));
+      idx += expect;
+    }
+    let li = 0;
+    for (const layer of this.model!.layers) {
+      const expect = layer.getWeights().length;
+      if (expect === 0) continue;
+      (layer as unknown as { setWeights: (w: tf.Tensor[]) => void }).setWeights(
+        perLayer[li++] ?? [],
+      );
+    }
   }
 
   dispose(): void {
     if (this.model) this.model.dispose();
     this.model = null;
+  }
+
+  setHyperparams(h: { learningRate: number; optimizer: "sgd" | "adam" }) {
+    this.learningRate = Math.max(1e-5, Math.min(1, h.learningRate));
+    this.optimizerType = h.optimizer;
   }
 }

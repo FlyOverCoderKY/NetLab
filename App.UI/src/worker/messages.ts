@@ -16,6 +16,9 @@ export type InMsg =
   | { type: "run"; payload: { steps: number } }
   | { type: "pause" }
   | { type: "set-weights"; payload: unknown }
+  | { type: "get-weights" }
+  | { type: "save-weights" }
+  | { type: "load-weights"; payload: { state: unknown } }
   | { type: "switch-model"; payload: { modelType: TrainConfig["modelType"] } }
   | { type: "predict"; payload: { x: Float32Array } }
   | { type: "dispose" };
@@ -26,7 +29,7 @@ export type OutMsg =
   | { type: "metrics"; payload: { step: number; loss: number; acc?: number } }
   | { type: "visuals"; payload: import("../models/types").Visuals }
   | { type: "confusion"; payload: { labels: string[]; matrix: number[][] } }
-  | { type: "weights"; payload: unknown }
+  | { type: "weights"; payload: { model: string; state: unknown } }
   | { type: "error"; payload: { message: string } }
   | { type: "prediction"; payload: { probs: Float32Array } }
   | { type: "done"; payload?: Record<string, never> };

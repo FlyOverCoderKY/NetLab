@@ -392,6 +392,11 @@ Current:
 **DoD**
 - Filters become edge/spot-like with training; FPS acceptable.
 
+Current:
+- Implemented `models/cnn.ts` with `Conv2D(8, 5×5, relu) → MaxPool(2) → Flatten → Dense(36)`. ✅
+- Added `getVisuals()` to export first-layer filter tiles; Anatomy renders them alongside softmax/MLP tiles. ✅
+- Model factory now supports `cnn` mode; UI Math tab added with mode-specific equations. ✅
+
 ---
 
 ### Phase 12 — Math Tab (Dynamic)
@@ -408,6 +413,9 @@ Current:
 **DoD**
 - Step-through overlays disappear when training resumes.
 
+Current:
+- Added a simple `MathPanel` that renders mode-specific formulas for Softmax, MLP, and CNN. ✅ Step overlays are TBD.
+
 ---
 
 ### Phase 13 — Settings, Persistence, Checkpoints
@@ -422,6 +430,10 @@ Current:
 
 **DoD**
 - JSON round-trip works across sessions; versioned schema.
+
+Current:
+- Added worker messages for `save-weights`/`load-weights` and `get-weights`, with serialize/emit implemented; client exposes `saveWeights`/`loadWeights`/`getWeights`. Train panel includes a "Save Weights" button (download UI TBD). 🚧
+  - Models now implement `serialize()` and `load()` with per-layer weights captured (shape + data) for Softmax, MLP, and CNN. ✅
 
 ---
 

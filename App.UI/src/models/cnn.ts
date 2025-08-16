@@ -1,8 +1,8 @@
 import * as tf from "@tensorflow/tfjs";
 import type { TeachModel, Visuals } from "./types";
 
-export class SoftmaxModel implements TeachModel {
-  name = "softmax" as const;
+export class CNNModel implements TeachModel {
+  name = "cnn" as const;
   inputShape: [number, number, number] = [28, 28, 1];
   private model: tf.LayersModel | null = null;
   private learningRate = 0.01;
@@ -10,7 +10,18 @@ export class SoftmaxModel implements TeachModel {
 
   async init(): Promise<void> {
     const m = tf.sequential();
-    m.add(tf.layers.flatten({ inputShape: this.inputShape }));
+    m.add(
+      tf.layers.conv2d({
+        inputShape: this.inputShape,
+        filters: 8,
+        kernelSize: 5,
+        activation: "relu",
+        useBias: true,
+        padding: "valid",
+      }),
+    );
+    m.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
+    m.add(tf.layers.flatten());
     m.add(tf.layers.dense({ units: 36, useBias: true }));
     this.model = m;
   }
@@ -53,45 +64,45 @@ export class SoftmaxModel implements TeachModel {
 
   async getVisuals(): Promise<Visuals> {
     if (!this.model) return {};
-    const dense = this.model.layers.find((l) => l.getClassName() === "Dense");
-    if (!dense) return {};
-    const weights = dense.getWeights();
+    const conv = this.model.layers.find((l) => l.getClassName() === "Conv2D");
+    if (!conv) return {};
+    const weights = conv.getWeights();
     if (!weights.length) return {};
-    const kernel = weights[0] as tf.Tensor2D; // shape [784,36]
-    const arr = await kernel.array();
-    const width = 28;
-    const height = 28;
-    const numClasses = arr[0]?.length ?? 36;
+    const kernel = weights[0] as tf.Tensor4D; // [kh, kw, inC, outC]
+    const arr = (await kernel.array()) as number[][][][];
+    const kh = arr.length;
+    const kw = arr[0]?.length ?? 0;
+    const outC = arr[0]?.[0]?.[0]?.length ?? 0;
     const tiles: { name: string; grid: number[][] }[] = [];
-    for (let c = 0; c < numClasses; c++) {
-      const grid: number[][] = Array.from({ length: height }, () =>
-        Array(width).fill(0),
+    for (let f = 0; f < outC; f++) {
+      const grid: number[][] = Array.from({ length: kh }, () =>
+        Array(kw).fill(0),
       );
-      // Extract column c from kernel and map into 28x28
-      for (let i = 0; i < width * height; i++) {
-        const y = Math.floor(i / width);
-        const x = i % width;
-        grid[y][x] = arr[i][c];
+      for (let y = 0; y < kh; y++) {
+        for (let x = 0; x < kw; x++) {
+          // inC is 1 for grayscale
+          grid[y][x] = arr[y][x][0][f];
+        }
       }
-      // Normalize to 0..1 for visualization
+      // normalize
       let min = Infinity;
       let max = -Infinity;
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+      for (let y = 0; y < kh; y++) {
+        for (let x = 0; x < kw; x++) {
           const v = grid[y][x];
           if (v < min) min = v;
           if (v > max) max = v;
         }
       }
       const range = max - min || 1;
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+      for (let y = 0; y < kh; y++) {
+        for (let x = 0; x < kw; x++) {
           grid[y][x] = (grid[y][x] - min) / range;
         }
       }
-      tiles.push({ name: `Class ${c}`, grid });
+      tiles.push({ name: `Filter ${f}`, grid });
     }
-    return { weights: tiles };
+    return { filters: tiles };
   }
 
   async serialize(): Promise<Record<string, unknown>> {
@@ -137,7 +148,6 @@ export class SoftmaxModel implements TeachModel {
       perLayer.push(tensorsPerLayer.slice(idx, idx + expect));
       idx += expect;
     }
-    // Apply weights layer by layer
     let li = 0;
     for (const layer of this.model!.layers) {
       const expect = layer.getWeights().length;

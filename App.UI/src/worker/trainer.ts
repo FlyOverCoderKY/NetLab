@@ -3,6 +3,18 @@
 import type { InMsg, OutMsg, TrainConfig } from "./messages";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-wasm";
+import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
+// Bundle wasm assets via Vite and point TFJS to the right URLs
+// These imports resolve to URLs at runtime
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import wasmUrl from "@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm.wasm?url";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import wasmSimdUrl from "@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm-simd.wasm?url";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import wasmThreadedSimdUrl from "@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm-threaded-simd.wasm?url";
 import { makeDataset } from "../data/dataset";
 import { createModel } from "../models";
 import type { Visuals } from "../models/types";
@@ -27,9 +39,24 @@ function handleInit(payload: { backend: "webgl" | "wasm" }) {
   if (payload && payload.backend) {
     // no-op: backend selection is forced to wasm below
   }
-  tf.setBackend("wasm").then(() => {
-    postMessage({ type: "ready" } as OutMsg);
-  });
+  try {
+    setWasmPaths({
+      "tfjs-backend-wasm.wasm": wasmUrl as string,
+      "tfjs-backend-wasm-simd.wasm": wasmSimdUrl as string,
+      "tfjs-backend-wasm-threaded-simd.wasm": wasmThreadedSimdUrl as string,
+    } as unknown as Record<string, string>);
+  } catch {
+    // ignore, TFJS will try defaults
+  }
+  tf
+    .setBackend("wasm")
+    .catch(async () => {
+      // Fallback to CPU if WASM fails to initialize (e.g., wrong MIME)
+      await tf.setBackend("cpu");
+    })
+    .then(() => {
+      postMessage({ type: "ready" } as OutMsg);
+    });
 }
 
 function handleCompile(cfg: TrainConfig) {
@@ -71,6 +98,30 @@ function handleCompile(cfg: TrainConfig) {
     type: "compiled",
     payload: { params: 36 * 784 + 36 },
   } as OutMsg);
+  // Pass hyperparams into model if already initialized
+  if (
+    model &&
+    (
+      model as unknown as {
+        setHyperparams?: (h: {
+          learningRate: number;
+          optimizer: "sgd" | "adam";
+        }) => void;
+      }
+    ).setHyperparams
+  ) {
+    (
+      model as unknown as {
+        setHyperparams: (h: {
+          learningRate: number;
+          optimizer: "sgd" | "adam";
+        }) => void;
+      }
+    ).setHyperparams({
+      learningRate: cfg.learningRate,
+      optimizer: cfg.optimizer,
+    });
+  }
 }
 
 function postMetrics() {
@@ -237,6 +288,48 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
       isRunning = false;
       if (rafId != null) cancelAnimationFrame(rafId);
       rafId = null;
+      break;
+    }
+    case "get-weights": {
+      if (!model) break;
+      const currentModel = model;
+      currentModel
+        .serialize()
+        .then((state) =>
+          postMessage({
+            type: "weights",
+            payload: { model: currentModel.name, state },
+          } as OutMsg),
+        )
+        .catch((err) =>
+          postMessage({ type: "error", payload: { message: String(err) } }),
+        );
+      break;
+    }
+    case "save-weights": {
+      if (!model) break;
+      const currentModel = model;
+      currentModel
+        .serialize()
+        .then((state) =>
+          postMessage({
+            type: "weights",
+            payload: { model: currentModel.name, state },
+          } as OutMsg),
+        )
+        .catch((err) =>
+          postMessage({ type: "error", payload: { message: String(err) } }),
+        );
+      break;
+    }
+    case "load-weights": {
+      if (model) {
+        model
+          .load(msg.payload.state as Record<string, unknown>)
+          .catch((err: unknown) =>
+            postMessage({ type: "error", payload: { message: String(err) } }),
+          );
+      }
       break;
     }
     case "predict": {

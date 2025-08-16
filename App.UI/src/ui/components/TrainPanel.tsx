@@ -33,6 +33,10 @@ const TrainPanel: React.FC = () => {
     getTrainerClient().pause();
     setRunning(false);
   };
+  const save = () => {
+    const c = getTrainerClient();
+    c.saveWeights();
+  };
   const stepOnce = () => {
     const client = getTrainerClient();
     client.compile({
@@ -76,6 +80,7 @@ const TrainPanel: React.FC = () => {
         <button onClick={start} disabled={running}>
           Start
         </button>
+        <button onClick={save}>Save Weights</button>
         <button onClick={pause} disabled={!running}>
           Pause
         </button>

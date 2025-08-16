@@ -10,6 +10,7 @@ type ListenerMap = {
   prediction: ((p: { probs: Float32Array }) => void)[];
   visuals: ((v: Visuals) => void)[];
   confusion: ((p: { labels: string[]; matrix: number[][] }) => void)[];
+  weights: ((p: { model: string; state: unknown }) => void)[];
 };
 
 class TrainerClient {
@@ -23,6 +24,7 @@ class TrainerClient {
     prediction: [],
     visuals: [],
     confusion: [],
+    weights: [],
   };
   private isDisposed = false;
 
@@ -53,6 +55,11 @@ class TrainerClient {
         case "prediction":
           this.listeners.prediction.forEach((cb) =>
             cb(msg.payload as { probs: Float32Array }),
+          );
+          break;
+        case "weights":
+          this.listeners.weights.forEach((cb) =>
+            cb(msg.payload as { model: string; state: unknown }),
           );
           break;
         case "done":
@@ -117,6 +124,21 @@ class TrainerClient {
     const msg: InMsg = { type: "dispose" };
     this.worker.postMessage(msg);
     this.worker.terminate();
+  }
+
+  saveWeights() {
+    const msg: InMsg = { type: "save-weights" } as InMsg;
+    this.worker.postMessage(msg);
+  }
+
+  getWeights() {
+    const msg: InMsg = { type: "get-weights" } as InMsg;
+    this.worker.postMessage(msg);
+  }
+
+  loadWeights(state: unknown) {
+    const msg: InMsg = { type: "load-weights", payload: { state } } as InMsg;
+    this.worker.postMessage(msg);
   }
 }
 
