@@ -33,7 +33,6 @@ export function renderGlyphTo28x28(
 
   let ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null =
     null;
-  let isWorkerCanvas = false;
   if (hasDocument) {
     const canvas = document.createElement("canvas");
     canvas.width = 28;
@@ -42,7 +41,6 @@ export function renderGlyphTo28x28(
   } else if (typeof Offscreen === "function") {
     const canvas = new Offscreen(28, 28);
     ctx = canvas.getContext("2d");
-    isWorkerCanvas = true;
   }
 
   if (!ctx) {
@@ -73,7 +71,8 @@ export function renderGlyphTo28x28(
   ctx.textAlign = "center" as CanvasTextAlign;
   ctx.textBaseline = "middle" as CanvasTextBaseline;
   (ctx as CanvasRenderingContext2D).fillStyle = params.invert ? "#fff" : "#000";
-  (ctx as CanvasRenderingContext2D).font = `${params.fontSize}px ${params.fontFamily}, sans-serif`;
+  (ctx as CanvasRenderingContext2D).font =
+    `${params.fontSize}px ${params.fontFamily}, sans-serif`;
   // Drawing text – in workers, fonts may differ; acceptable for current use.
   ctx.fillText(char, 0, 0);
   ctx.restore();

@@ -48,8 +48,7 @@ function handleInit(payload: { backend: "webgl" | "wasm" }) {
   } catch {
     // ignore, TFJS will try defaults
   }
-  tf
-    .setBackend("wasm")
+  tf.setBackend("wasm")
     .catch(async () => {
       // Fallback to CPU if WASM fails to initialize (e.g., wrong MIME)
       await tf.setBackend("cpu");
