@@ -55,7 +55,7 @@ Short list of items to address after the initial buildout. Each item links to co
 - **Math step overlays**
   - Gap: No gradient/∆W overlays during step‑through.
   - Suggestion: On `step` when paused, compute gradients for the selected class only (softmax first) via `tf.grads`, stream magnitude heatmaps, and clear when running resumes.
-  - Status: DONE (Softmax initial). Worker computes and streams a per-class gradient-magnitude heatmap (`overlaysArr`) when overlays are enabled; toggle added in `TrainPanel`. Future: extend overlays to MLP/CNN.
+  - Status: DONE. Worker computes and streams a per-class gradient-magnitude heatmap (`overlaysArr`) for all model types using input gradients; toggle added in `TrainPanel`.
 
 - **Param count reporting**
   - Gap: `compiled.params` is hardcoded for softmax.
@@ -80,16 +80,20 @@ Short list of items to address after the initial buildout. Each item links to co
 - **Recharts usage**
   - Gap: Listed in dependencies but not used.
   - Suggestion: Either remove the dependency or use Recharts for low‑frequency/static plots and keep Canvas for high‑frequency charts.
+  - Status: DONE. Removed `recharts` from dependencies to simplify footprint.
 
 - **Font determinism**
   - Gap: No bundled font assets or `fonts.ts`; generator relies on system fonts.
   - Suggestion: Bundle a redistributable font and use it by default; keep `waitForFontsReady` guard; document expected variability across devices otherwise.
+  - Status: DONE (initial). Added `fonts.ts` with bundled font registration and updated generator to prefer the bundled font if available; preloads added in `index.html`. Next: add the actual font asset file in `/public/fonts` (missing in repo).
 
 - **OffscreenCanvas**
   - Suggestion: Where supported, consider `OffscreenCanvas` for the mini chart and heatmaps to minimize main‑thread work during training.
+  - Status: DONE (initial). `Heatmap` now uses `OffscreenCanvas` when available to compose source images before scaling. Data generator already supported OffscreenCanvas.
 
 - **Mobile defaults**
   - Suggestion: Detect lack of WASM SIMD/threads and reduce default batch sizes.
+  - Status: DONE. Added runtime capability detection and automatic batch size reduction (to 16) on constrained WASM devices.
 
 ### Verification checklist
 

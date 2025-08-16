@@ -20,3 +20,14 @@ export async function initTFBackend(): Promise<string> {
 export function getTFBackend(): string {
   return tf.getBackend();
 }
+
+export async function detectWasmCapabilities(): Promise<{
+  simd: boolean;
+  threads: boolean;
+}> {
+  const envGet = (tf as unknown as { env?: { get?: (k: string) => unknown } })
+    .env?.get;
+  const simd = Boolean(envGet?.("WASM_HAS_SIMD_SUPPORT"));
+  const threads = Boolean(envGet?.("WASM_HAS_THREADS_SUPPORT"));
+  return { simd, threads };
+}

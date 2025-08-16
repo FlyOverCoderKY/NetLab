@@ -16,6 +16,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ grid, size = 112, title }) => {
     if (!w || !h) return;
     c.width = size;
     c.height = size;
+    // Prefer OffscreenCanvas to render the source image if available
     const ctx = c.getContext("2d");
     if (!ctx) return; // jsdom/no-canvas env
     const img = ctx.createImageData(w, h);
@@ -30,14 +31,36 @@ const Heatmap: React.FC<HeatmapProps> = ({ grid, size = 112, title }) => {
         img.data[i + 3] = 255;
       }
     }
-    const off = document.createElement("canvas");
-    off.width = w;
-    off.height = h;
-    const octx = off.getContext("2d")!;
-    octx.putImageData(img, 0, 0);
+    let off: HTMLCanvasElement | OffscreenCanvas;
+    const AnyGlobal = globalThis as unknown as {
+      OffscreenCanvas?: new (w: number, h: number) => OffscreenCanvas;
+    };
+    if (AnyGlobal.OffscreenCanvas) {
+      off = new AnyGlobal.OffscreenCanvas(w, h);
+      const octx = (off as OffscreenCanvas).getContext("2d")!;
+      octx.putImageData(img, 0, 0);
+    } else {
+      const el = document.createElement("canvas");
+      el.width = w;
+      el.height = h;
+      const octx = el.getContext("2d")!;
+      octx.putImageData(img, 0, 0);
+      off = el;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, size, size);
-    ctx.drawImage(off, 0, 0, w, h, 0, 0, size, size);
+    // drawImage handles both HTMLCanvasElement and OffscreenCanvas sources
+    ctx.drawImage(
+      off as unknown as CanvasImageSource,
+      0,
+      0,
+      w,
+      h,
+      0,
+      0,
+      size,
+      size,
+    );
   }, [grid, size]);
   return (
     <figure style={{ margin: 0 }}>

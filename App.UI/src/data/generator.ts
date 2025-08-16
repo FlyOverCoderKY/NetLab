@@ -1,4 +1,9 @@
 import { XorShift32 } from "./seed";
+import {
+  BUNDLED_FONT_FAMILY,
+  registerBundledFonts,
+  waitForBundledFontReady,
+} from "./fonts";
 
 export type GlyphParams = {
   fontFamily: string;
@@ -13,11 +18,18 @@ export type GlyphParams = {
 export async function waitForFontsReady(): Promise<void> {
   const hasDocument = typeof document !== "undefined";
   if (!hasDocument) return;
+  // Ensure bundled font-face is registered
+  try {
+    registerBundledFonts();
+  } catch {
+    // ignore
+  }
   const doc = document as Document & { fonts?: FontFaceSet };
   const fonts = doc.fonts;
   if (fonts && typeof fonts.ready?.then === "function") {
     await fonts.ready;
   }
+  await waitForBundledFontReady().catch(() => void 0);
 }
 
 export function renderGlyphTo28x28(
@@ -84,8 +96,9 @@ export function renderGlyphTo28x28(
     (ctx as CanvasRenderingContext2D).fillStyle = params.invert
       ? "#fff"
       : "#000";
+    const family = params.fontFamily || BUNDLED_FONT_FAMILY;
     (ctx as CanvasRenderingContext2D).font =
-      `${params.fontSize}px ${params.fontFamily}, sans-serif`;
+      `${params.fontSize}px ${family}, sans-serif`;
     // Drawing text – in workers, fonts may differ; acceptable for current use.
     ctx.fillText(char, 0, 0);
     ctx.restore();

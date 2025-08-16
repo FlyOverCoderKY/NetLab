@@ -230,8 +230,8 @@ function handleStep() {
           if (v.activationsArr)
             for (const t of v.activationsArr)
               transfers.push(t.data.buffer as ArrayBuffer);
-          // Compute overlays for softmax first (per-class gradient magnitude)
-          if (overlayEnabled && currentCfg?.modelType === "softmax") {
+          // Compute overlays (gradient magnitude wrt input) for current model
+          if (overlayEnabled) {
             try {
               const { value } = valIterator
                 ? valIterator.next()
@@ -239,33 +239,31 @@ function handleStep() {
               if (value) {
                 const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
                 const tile = tf.tidy(() => {
-                  // x: [1,28,28,1] -> flatten to [784]
-                  const x = batch.x
-                    .slice([0, 0, 0, 0], [1, 28, 28, 1])
-                    .reshape([784]);
-                  // logits and softmax
-                  const logits = (
-                    model as unknown as {
-                      model?: { predict: (x: tf.Tensor4D) => tf.Tensor };
-                    }
-                  ).model!.predict(batch.x) as tf.Tensor2D;
-                  const probs = tf.softmax(logits).as1D();
+                  // Single sample
+                  const x1 = batch.x.slice([0, 0, 0, 0], [1, 28, 28, 1]);
                   const c = overlayClassIndex | 0;
-                  const pc = probs.gather([c]).as1D();
-                  const yc = tf
-                    .equal(batch.y.gather([0]), tf.scalar(c, "int32"))
-                    .cast("float32");
-                  const diff = tf.sub(pc, yc); // scalar
-                  const grad = tf.mul(x, diff); // [784]
-                  const abs = tf.abs(grad);
+                  const fn = tf.grads((inp: tf.Tensor): tf.Scalar => {
+                    // Use underlying layers model to keep this synchronous
+                    const logits = (
+                      model as unknown as {
+                        model?: { predict: (z: tf.Tensor4D) => tf.Tensor };
+                      }
+                    ).model!.predict(inp as tf.Tensor4D) as tf.Tensor2D;
+                    const probs = tf.softmax(logits); // [1,36]
+                    const pc = probs.slice([0, c], [1, 1]).reshape([]);
+                    const loss = tf.neg(tf.log(pc.add(1e-8))) as tf.Scalar;
+                    return loss;
+                  });
+                  const [gx] = fn([x1]); // [1,28,28,1]
+                  const abs = tf.abs(gx);
                   const maxv = tf.maximum(tf.max(abs), tf.scalar(1e-8));
-                  const norm = tf.div(abs, maxv); // [784] in 0..1
-                  return norm.reshape([28, 28]);
+                  const norm = tf.div(abs, maxv).reshape([28, 28]);
+                  return norm;
                 });
                 const data = Float32Array.from(await tile.data());
                 payload.overlaysArr = [
                   {
-                    name: `dL/dW class ${overlayClassIndex}`,
+                    name: `|∂L/∂x| class ${overlayClassIndex}`,
                     width: 28,
                     height: 28,
                     data,
