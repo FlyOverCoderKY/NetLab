@@ -7,6 +7,7 @@ export class MLPModel implements TeachModel {
   private model: tf.LayersModel | null = null;
   private learningRate = 0.01;
   private optimizerType: "sgd" | "adam" = "sgd";
+  private weightDecay = 0;
 
   async init(): Promise<void> {
     const m = tf.sequential();
@@ -37,9 +38,20 @@ export class MLPModel implements TeachModel {
     optimizer.minimize(() => {
       const logits = this.model!.predict(batch.x) as tf.Tensor2D;
       const onehot = tf.oneHot(batch.y as tf.Tensor1D, 36);
-      const loss = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
-      lossValue = (loss.dataSync?.()[0] as number) ?? 0;
-      return loss as tf.Scalar;
+      const ce = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
+      let total = ce as tf.Tensor;
+      if (this.weightDecay > 0) {
+        for (const layer of this.model!.layers) {
+          const ws = layer.getWeights();
+          if (ws.length > 0) {
+            const w = ws[0];
+            const l2 = tf.mul(0.5 * this.weightDecay, tf.sum(tf.square(w)));
+            total = tf.add(total, l2);
+          }
+        }
+      }
+      lossValue = (total.dataSync?.()[0] as number) ?? 0;
+      return total as tf.Scalar;
     });
     optimizer.dispose();
     return { loss: lossValue };
@@ -52,7 +64,7 @@ export class MLPModel implements TeachModel {
     return { acc: 0 };
   }
 
-  async getVisuals(): Promise<Visuals> {
+  async getVisuals(inputSample?: tf.Tensor4D): Promise<Visuals> {
     if (!this.model) return {};
     // Extract first Dense layer weights for receptive field tiles
     const dense1 = this.model.layers.find((l) => l.getClassName() === "Dense");
@@ -90,7 +102,49 @@ export class MLPModel implements TeachModel {
       }
       tiles.push({ name: `Unit ${u}`, grid });
     }
-    return { weights: tiles };
+    const visuals: Visuals = { weights: tiles };
+    // Optional: hidden activation bars on current sample
+    if (inputSample) {
+      try {
+        const acts = tf.tidy(() => {
+          const layers = this.model!.layers;
+          const flat = (
+            layers[0] as { apply: (x: tf.Tensor) => tf.Tensor }
+          ).apply(inputSample) as tf.Tensor2D;
+          const hidden = (
+            layers[1] as { apply: (x: tf.Tensor) => tf.Tensor }
+          ).apply(flat) as tf.Tensor2D; // [1,64]
+          return hidden;
+        });
+        const arr = Array.from((await acts.data()) as Float32Array);
+        const hBars = Math.min(arr.length, 36);
+        const barTiles: { layer: string; grid: number[][] }[] = [];
+        const barArr: {
+          layer: string;
+          width: number;
+          height: number;
+          data: Float32Array;
+        }[] = [];
+        for (let i = 0; i < hBars; i++) {
+          const v = Math.max(0, Math.min(1, arr[i]));
+          // Make a 1x16 bar scaled by v
+          const len = 16;
+          const grid = [
+            Array.from({ length: len }, (_, x) => (x / (len - 1) <= v ? v : 0)),
+          ];
+          const flat = new Float32Array(len);
+          for (let x = 0; x < len; x++) flat[x] = grid[0][x];
+          barTiles.push({ layer: `h${i}`, grid });
+          barArr.push({ layer: `h${i}`, width: len, height: 1, data: flat });
+        }
+        visuals.activations = barTiles;
+        visuals.activationsArr = barArr;
+        acts.dispose();
+      } catch {
+        // ignore
+      }
+    }
+    return visuals;
   }
 
   async serialize(): Promise<Record<string, unknown>> {
@@ -151,8 +205,13 @@ export class MLPModel implements TeachModel {
     this.model = null;
   }
 
-  setHyperparams(h: { learningRate: number; optimizer: "sgd" | "adam" }) {
+  setHyperparams(h: {
+    learningRate: number;
+    optimizer: "sgd" | "adam";
+    weightDecay?: number;
+  }) {
     this.learningRate = Math.max(1e-5, Math.min(1, h.learningRate));
     this.optimizerType = h.optimizer;
+    this.weightDecay = Math.max(0, h.weightDecay ?? 0);
   }
 }

@@ -7,6 +7,7 @@ export class SoftmaxModel implements TeachModel {
   private model: tf.LayersModel | null = null;
   private learningRate = 0.01;
   private optimizerType: "sgd" | "adam" = "sgd";
+  private weightDecay = 0;
 
   async init(): Promise<void> {
     const m = tf.sequential();
@@ -36,9 +37,20 @@ export class SoftmaxModel implements TeachModel {
     optimizer.minimize(() => {
       const logits = this.model!.predict(batch.x) as tf.Tensor2D;
       const onehot = tf.oneHot(batch.y as tf.Tensor1D, 36);
-      const loss = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
-      lossValue = (loss.dataSync?.()[0] as number) ?? 0;
-      return loss as tf.Scalar;
+      const ce = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
+      let total = ce as tf.Tensor;
+      if (this.weightDecay > 0) {
+        const dense = this.model!.layers.find(
+          (l) => l.getClassName() === "Dense",
+        );
+        if (dense) {
+          const w = dense.getWeights()[0] as tf.Tensor;
+          const l2 = tf.mul(0.5 * this.weightDecay, tf.sum(tf.square(w)));
+          total = tf.add(total, l2);
+        }
+      }
+      lossValue = (total.dataSync?.()[0] as number) ?? 0;
+      return total as tf.Scalar;
     });
     optimizer.dispose();
     return { loss: lossValue };
@@ -63,6 +75,12 @@ export class SoftmaxModel implements TeachModel {
     const height = 28;
     const numClasses = arr[0]?.length ?? 36;
     const tiles: { name: string; grid: number[][] }[] = [];
+    const tilesArr: {
+      name: string;
+      width: number;
+      height: number;
+      data: Float32Array;
+    }[] = [];
     for (let c = 0; c < numClasses; c++) {
       const grid: number[][] = Array.from({ length: height }, () =>
         Array(width).fill(0),
@@ -84,14 +102,18 @@ export class SoftmaxModel implements TeachModel {
         }
       }
       const range = max - min || 1;
+      const flat = new Float32Array(width * height);
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          grid[y][x] = (grid[y][x] - min) / range;
+          const norm = (grid[y][x] - min) / range;
+          grid[y][x] = norm;
+          flat[y * width + x] = norm;
         }
       }
       tiles.push({ name: `Class ${c}`, grid });
+      tilesArr.push({ name: `Class ${c}`, width, height, data: flat });
     }
-    return { weights: tiles };
+    return { weights: tiles, weightsArr: tilesArr };
   }
 
   async serialize(): Promise<Record<string, unknown>> {
@@ -153,8 +175,13 @@ export class SoftmaxModel implements TeachModel {
     this.model = null;
   }
 
-  setHyperparams(h: { learningRate: number; optimizer: "sgd" | "adam" }) {
+  setHyperparams(h: {
+    learningRate: number;
+    optimizer: "sgd" | "adam";
+    weightDecay?: number;
+  }) {
     this.learningRate = Math.max(1e-5, Math.min(1, h.learningRate));
     this.optimizerType = h.optimizer;
+    this.weightDecay = Math.max(0, h.weightDecay ?? 0);
   }
 }

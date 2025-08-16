@@ -1,6 +1,12 @@
 /// <reference lib="webworker" />
 // NOTE: TF.js imports are deferred until needed in later phases to avoid type resolution during scaffolding.
-import type { InMsg, OutMsg, TrainConfig } from "./messages";
+import type {
+  InMsg,
+  OutMsg,
+  TrainConfig,
+  SetWeightsPayload,
+  SetOverlayPayload,
+} from "./messages";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-wasm";
 import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
@@ -34,6 +40,8 @@ import type { TeachModel } from "../models/types";
 let model: TeachModel | null = null;
 let modelInitPromise: Promise<void> | null = null;
 let lastVisualsSentAt = 0;
+let overlayEnabled = false;
+let overlayClassIndex = 0;
 
 function handleInit(payload: { backend: "webgl" | "wasm" }) {
   // Read requested backend to satisfy lint, but we force WASM in the worker
@@ -70,13 +78,13 @@ function handleCompile(cfg: TrainConfig) {
   dataIterator = makeDataset(
     {
       seed: cfg.seed,
-      fontFamily: "Inter",
-      fontSize: 20,
-      thickness: 20,
-      jitterPx: 1,
-      rotationDeg: 4,
-      invert: false,
-      noise: false,
+      fontFamily: cfg.dataset?.fontFamily ?? "Inter",
+      fontSize: cfg.dataset?.fontSize ?? 20,
+      thickness: cfg.dataset?.thickness ?? 20,
+      jitterPx: cfg.dataset?.jitterPx ?? 1,
+      rotationDeg: cfg.dataset?.rotationDeg ?? 4,
+      invert: cfg.dataset?.invert ?? false,
+      noise: cfg.dataset?.noise ?? false,
     },
     cfg.batchSize,
   );
@@ -84,19 +92,41 @@ function handleCompile(cfg: TrainConfig) {
   valIterator = makeDataset(
     {
       seed: cfg.seed + 9999,
-      fontFamily: "Inter",
-      fontSize: 20,
-      thickness: 20,
-      jitterPx: 1,
-      rotationDeg: 4,
-      invert: false,
-      noise: false,
+      fontFamily: cfg.dataset?.fontFamily ?? "Inter",
+      fontSize: cfg.dataset?.fontSize ?? 20,
+      thickness: cfg.dataset?.thickness ?? 20,
+      jitterPx: cfg.dataset?.jitterPx ?? 1,
+      rotationDeg: cfg.dataset?.rotationDeg ?? 4,
+      invert: cfg.dataset?.invert ?? false,
+      noise: cfg.dataset?.noise ?? false,
     },
     36,
   );
+  // Report parameter count based on current model if available
+  let paramCount = 36 * 784 + 36;
+  try {
+    if (model) {
+      const m = (
+        model as unknown as {
+          model?: { layers?: { getWeights: () => tf.Tensor[] }[] };
+        }
+      ).model;
+      if (m?.layers && Array.isArray(m.layers)) {
+        paramCount = m.layers.reduce(
+          (sum: number, layer: { getWeights: () => tf.Tensor[] }) => {
+            const ws = layer.getWeights();
+            return sum + ws.reduce((s, t) => s + (t.size ?? 0), 0);
+          },
+          0,
+        );
+      }
+    }
+  } catch {
+    // ignore and keep fallback count
+  }
   postMessage({
     type: "compiled",
-    payload: { params: 36 * 784 + 36 },
+    payload: { params: paramCount },
   } as OutMsg);
   // Pass hyperparams into model if already initialized
   if (
@@ -106,6 +136,7 @@ function handleCompile(cfg: TrainConfig) {
         setHyperparams?: (h: {
           learningRate: number;
           optimizer: "sgd" | "adam";
+          weightDecay?: number;
         }) => void;
       }
     ).setHyperparams
@@ -115,11 +146,13 @@ function handleCompile(cfg: TrainConfig) {
         setHyperparams: (h: {
           learningRate: number;
           optimizer: "sgd" | "adam";
+          weightDecay?: number;
         }) => void;
       }
     ).setHyperparams({
       learningRate: cfg.learningRate,
       optimizer: cfg.optimizer,
+      weightDecay: cfg.weightDecay ?? 0,
     });
   }
 }
@@ -179,9 +212,75 @@ function handleStep() {
     // Also push visuals and a lightweight accuracy estimate on snapshot
     if (model && shouldEmitVisuals) {
       model
-        .getVisuals()
-        .then((v: Visuals) => {
-          postMessage({ type: "visuals", payload: v } as OutMsg);
+        .getVisuals(undefined)
+        .then(async (v: Visuals) => {
+          // Prefer transfer-optimized arrays to reduce payload size
+          const payload: Visuals = {
+            weightsArr: v.weightsArr,
+            filtersArr: v.filtersArr,
+            activationsArr: v.activationsArr,
+          };
+          const transfers: ArrayBuffer[] = [];
+          if (v.weightsArr)
+            for (const t of v.weightsArr)
+              transfers.push(t.data.buffer as ArrayBuffer);
+          if (v.filtersArr)
+            for (const t of v.filtersArr)
+              transfers.push(t.data.buffer as ArrayBuffer);
+          if (v.activationsArr)
+            for (const t of v.activationsArr)
+              transfers.push(t.data.buffer as ArrayBuffer);
+          // Compute overlays for softmax first (per-class gradient magnitude)
+          if (overlayEnabled && currentCfg?.modelType === "softmax") {
+            try {
+              const { value } = valIterator
+                ? valIterator.next()
+                : { value: null };
+              if (value) {
+                const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
+                const tile = tf.tidy(() => {
+                  // x: [1,28,28,1] -> flatten to [784]
+                  const x = batch.x
+                    .slice([0, 0, 0, 0], [1, 28, 28, 1])
+                    .reshape([784]);
+                  // logits and softmax
+                  const logits = (
+                    model as unknown as {
+                      model?: { predict: (x: tf.Tensor4D) => tf.Tensor };
+                    }
+                  ).model!.predict(batch.x) as tf.Tensor2D;
+                  const probs = tf.softmax(logits).as1D();
+                  const c = overlayClassIndex | 0;
+                  const pc = probs.gather([c]).as1D();
+                  const yc = tf
+                    .equal(batch.y.gather([0]), tf.scalar(c, "int32"))
+                    .cast("float32");
+                  const diff = tf.sub(pc, yc); // scalar
+                  const grad = tf.mul(x, diff); // [784]
+                  const abs = tf.abs(grad);
+                  const maxv = tf.maximum(tf.max(abs), tf.scalar(1e-8));
+                  const norm = tf.div(abs, maxv); // [784] in 0..1
+                  return norm.reshape([28, 28]);
+                });
+                const data = Float32Array.from(await tile.data());
+                payload.overlaysArr = [
+                  {
+                    name: `dL/dW class ${overlayClassIndex}`,
+                    width: 28,
+                    height: 28,
+                    data,
+                  },
+                ];
+                transfers.push(data.buffer as ArrayBuffer);
+                tile.dispose();
+                batch.x.dispose();
+                batch.y.dispose();
+              }
+            } catch {
+              // ignore overlay errors
+            }
+          }
+          postMessage({ type: "visuals", payload } as OutMsg, transfers);
         })
         .catch(() => void 0);
       // Accuracy and confusion estimate on a small validation batch to limit cost
@@ -294,6 +393,119 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
       rafId = null;
       break;
     }
+    case "set-overlay": {
+      const p = msg.payload as SetOverlayPayload;
+      overlayEnabled = !!p.enabled;
+      if (typeof p.classIndex === "number") {
+        overlayClassIndex = Math.max(0, Math.min(35, p.classIndex | 0));
+      }
+      break;
+    }
+    case "switch-model": {
+      try {
+        // Dispose current model and switch
+        if (model) {
+          try {
+            model.dispose();
+          } catch {
+            // ignore
+          }
+        }
+        model = createModel(msg.payload.modelType);
+        modelInitPromise = model.init();
+        if (currentCfg) currentCfg.modelType = msg.payload.modelType;
+      } catch (err) {
+        postMessage({ type: "error", payload: { message: String(err) } });
+      }
+      break;
+    }
+    case "set-weights": {
+      const payload = msg.payload as SetWeightsPayload;
+      if (!model) break;
+      if (payload.modelType === "softmax") {
+        // Update a single class column in the Dense kernel
+        const current = model as unknown as {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          model?: { layers: any[] } | null;
+          getVisuals: () => Promise<Visuals>;
+        };
+        const m = current.model as unknown as { layers: unknown[] } | null;
+        if (!m) break;
+        const dense = (m.layers as unknown[]).find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (l: any) =>
+            typeof l?.getClassName === "function" &&
+            l.getClassName() === "Dense",
+        ) as unknown as
+          | {
+              getWeights: () => tf.Tensor[];
+              setWeights: (w: tf.Tensor[]) => void;
+            }
+          | undefined;
+        if (!dense) break;
+        const weights = dense.getWeights();
+        if (!weights.length) break;
+        const kernel = weights[0] as tf.Tensor2D; // [784, 36]
+        const bias =
+          (weights[1] as tf.Tensor1D) ?? tf.tensor1d(new Float32Array(36));
+        const doUpdate = async () => {
+          if (payload.op === "zero-class") {
+            const arr = (await kernel.array()) as number[][];
+            for (let i = 0; i < arr.length; i++) arr[i][payload.classIndex] = 0;
+            const newKernel = tf.tensor2d(
+              arr,
+              kernel.shape as [number, number],
+              "float32",
+            );
+            dense.setWeights([newKernel, bias]);
+            newKernel.dispose();
+          } else if (payload.op === "randomize-class") {
+            const arr = (await kernel.array()) as number[][];
+            for (let i = 0; i < arr.length; i++) arr[i][payload.classIndex] = 0; // reset first
+            const newKernel = tf.tensor2d(
+              arr,
+              kernel.shape as [number, number],
+              "float32",
+            );
+            const noise = tf.randomNormal(
+              [kernel.shape[0], 1],
+              0,
+              0.01,
+              "float32",
+            );
+            const updated = tf.tidy(() =>
+              tf.concat(
+                [
+                  newKernel.slice(
+                    [0, 0],
+                    [kernel.shape[0], payload.classIndex],
+                  ),
+                  noise,
+                  newKernel.slice(
+                    [0, payload.classIndex + 1],
+                    [kernel.shape[0], kernel.shape[1] - payload.classIndex - 1],
+                  ),
+                ],
+                1,
+              ),
+            ) as tf.Tensor2D;
+            dense.setWeights([updated, bias]);
+            newKernel.dispose();
+            noise.dispose();
+            updated.dispose();
+          }
+          // Emit updated visuals
+          try {
+            const v = await (current.getVisuals() as Promise<Visuals>);
+            postMessage({ type: "visuals", payload: v } as OutMsg);
+          } catch {
+            // ignore
+          }
+        };
+        void doUpdate();
+      }
+      break;
+    }
     case "get-weights": {
       if (!model) break;
       const currentModel = model;
@@ -377,7 +589,7 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
     default: {
       postMessage({
         type: "error",
-        payload: { message: `Unhandled message: ${msg.type}` },
+        payload: { message: "Unhandled message" },
       } as OutMsg);
     }
   }

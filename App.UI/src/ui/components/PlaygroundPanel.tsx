@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CLASS_LIST, renderGlyphTo28x28 } from "../../data/generator";
 import { XorShift32 } from "../../data/seed";
 import { useAppStore } from "../../state/store";
@@ -35,6 +35,8 @@ const PlaygroundPanel: React.FC = () => {
   const dataset = useAppStore((s) => s.dataset);
   const [idx, setIdx] = useState(0);
   const [probs, setProbs] = useState<Float32Array | null>(null);
+  const [auto, setAuto] = useState(false);
+  const [intervalSec, setIntervalSec] = useState(2);
 
   const sample = useMemo(() => {
     const rng = new XorShift32(dataset.seed + idx);
@@ -48,10 +50,22 @@ const PlaygroundPanel: React.FC = () => {
     return () => off();
   }, []);
 
-  const predict = () => {
+  const predict = useCallback(() => {
     const c = getTrainerClient();
     c.predict(sample);
-  };
+  }, [sample]);
+
+  useEffect(() => {
+    if (!auto) return;
+    const id = setInterval(
+      () => {
+        setIdx((i) => (i + 1) % CLASS_LIST.length);
+        predict();
+      },
+      Math.max(500, intervalSec * 1000),
+    );
+    return () => clearInterval(id);
+  }, [auto, intervalSec, predict]);
 
   const topk = useMemo(() => {
     if (!probs) return [] as Array<{ label: string; p: number }>;
@@ -78,6 +92,35 @@ const PlaygroundPanel: React.FC = () => {
               Next
             </button>
             <button onClick={predict}>Predict</button>
+            <label
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <input
+                type="checkbox"
+                checked={auto}
+                onChange={(e) => setAuto(e.target.checked)}
+              />
+              <span>Auto-cycle</span>
+            </label>
+            <label
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span>Every</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={intervalSec}
+                onChange={(e) =>
+                  setIntervalSec(
+                    Math.max(1, Math.min(10, Number(e.target.value) || 1)),
+                  )
+                }
+                style={{ width: 48 }}
+                aria-label="Auto-cycle interval seconds"
+              />
+              <span>s</span>
+            </label>
           </div>
         </div>
         <div>

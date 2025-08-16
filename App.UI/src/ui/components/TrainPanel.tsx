@@ -10,26 +10,37 @@ const TrainPanel: React.FC = () => {
   const [running, setRunning] = useState(false);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [showConfusion, setShowConfusion] = useState(false);
+  const [overlays, setOverlays] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const mode = useAppStore((s) => s.mode);
+  const dataset = useAppStore((s) => s.dataset);
 
   const start = useCallback(() => {
     if (running) return;
     const client = getTrainerClient();
     client.compile({
       modelType: mode,
-      seed: 1234,
+      seed: dataset.seed,
       batchSize: training.batchSize,
       learningRate: training.learningRate,
       optimizer: training.optimizer,
       weightDecay: training.weightDecay,
       steps: 0,
       snapshotEvery: 10,
+      dataset: {
+        fontFamily: dataset.fontFamily,
+        fontSize: dataset.fontSize,
+        thickness: dataset.thickness,
+        jitterPx: dataset.jitterPx,
+        rotationDeg: dataset.rotationDeg,
+        invert: dataset.invert,
+        noise: dataset.noise,
+      },
     });
     client.run(5000);
     setRunning(true);
-  }, [running, mode, training]);
+  }, [running, mode, training, dataset]);
   const pause = useCallback(() => {
     getTrainerClient().pause();
     setRunning(false);
@@ -62,16 +73,25 @@ const TrainPanel: React.FC = () => {
     const client = getTrainerClient();
     client.compile({
       modelType: mode,
-      seed: 1234,
+      seed: dataset.seed,
       batchSize: training.batchSize,
       learningRate: training.learningRate,
       optimizer: training.optimizer,
       weightDecay: training.weightDecay,
       steps: 0,
       snapshotEvery: 1,
+      dataset: {
+        fontFamily: dataset.fontFamily,
+        fontSize: dataset.fontSize,
+        thickness: dataset.thickness,
+        jitterPx: dataset.jitterPx,
+        rotationDeg: dataset.rotationDeg,
+        invert: dataset.invert,
+        noise: dataset.noise,
+      },
     });
     client.step();
-  }, [mode, training]);
+  }, [mode, training, dataset]);
 
   useEffect(() => {
     const client = getTrainerClient();
@@ -181,6 +201,24 @@ const TrainPanel: React.FC = () => {
             onChange={(e) => setShowConfusion(e.target.checked)}
           />
           <span>Show confusion matrix</span>
+        </label>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            marginLeft: 16,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={overlays}
+            onChange={(e) => {
+              setOverlays(e.target.checked);
+              getTrainerClient().setOverlay({ enabled: e.target.checked });
+            }}
+          />
+          <span>Show math overlays</span>
         </label>
       </div>
       {showConfusion ? <ConfusionMatrix /> : null}

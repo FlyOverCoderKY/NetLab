@@ -6,6 +6,32 @@ export type Visuals = {
   weights?: { name: string; grid: Grid }[];
   filters?: { name: string; grid: Grid }[];
   activations?: { layer: string; grid: Grid }[];
+  // Transfer-optimized variants (flat arrays)
+  weightsArr?: {
+    name: string;
+    width: number;
+    height: number;
+    data: Float32Array;
+  }[];
+  filtersArr?: {
+    name: string;
+    width: number;
+    height: number;
+    data: Float32Array;
+  }[];
+  activationsArr?: {
+    layer: string;
+    width: number;
+    height: number;
+    data: Float32Array;
+  }[];
+  overlays?: { name: string; grid: Grid }[];
+  overlaysArr?: {
+    name: string;
+    width: number;
+    height: number;
+    data: Float32Array;
+  }[];
 };
 
 export interface TeachModel {
@@ -20,7 +46,7 @@ export interface TeachModel {
   evaluate(
     ds: Iterable<{ x: tf.Tensor4D; y: tf.Tensor1D }>,
   ): Promise<{ acc: number }>;
-  getVisuals(): Promise<Visuals>;
+  getVisuals(inputSample?: tf.Tensor4D): Promise<Visuals>;
   serialize(): Promise<Record<string, unknown>>;
   load(state: Record<string, unknown>): Promise<void>;
   dispose(): void;

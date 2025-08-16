@@ -1,6 +1,6 @@
 import React from "react";
 import { useAppStore } from "../state/store";
-// import DatasetPanel from "./components/DatasetPanel";
+import DatasetPanel from "./components/DatasetPanel";
 import TrainPanel from "./components/TrainPanel";
 import PlaygroundPanel from "./components/PlaygroundPanel";
 import AnatomyPanel from "./components/AnatomyPanel";
@@ -11,6 +11,8 @@ export const RoutesView: React.FC = () => {
   switch (tab) {
     case "playground":
       return <PlaygroundPanel />;
+    case "dataset":
+      return <DatasetPanel />;
     case "train":
       return <TrainPanel />;
     case "anatomy":

@@ -140,6 +140,32 @@ class TrainerClient {
     const msg: InMsg = { type: "load-weights", payload: { state } } as InMsg;
     this.worker.postMessage(msg);
   }
+
+  switchModel(modelType: TrainConfig["modelType"]) {
+    const msg: InMsg = {
+      type: "switch-model",
+      payload: { modelType },
+    } as InMsg;
+    this.worker.postMessage(msg);
+  }
+
+  setWeights(
+    payload: InMsg & { type: "set-weights" } extends { payload: infer P }
+      ? P
+      : never,
+  ) {
+    const msg: InMsg = { type: "set-weights", payload } as InMsg;
+    this.worker.postMessage(msg);
+  }
+
+  setOverlay(
+    payload: InMsg & { type: "set-overlay" } extends { payload: infer P }
+      ? P
+      : never,
+  ) {
+    const msg: InMsg = { type: "set-overlay", payload } as InMsg;
+    this.worker.postMessage(msg);
+  }
 }
 
 let singleton: TrainerClient | null = null;

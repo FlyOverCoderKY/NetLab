@@ -7,6 +7,7 @@ export class CNNModel implements TeachModel {
   private model: tf.LayersModel | null = null;
   private learningRate = 0.01;
   private optimizerType: "sgd" | "adam" = "sgd";
+  private weightDecay = 0;
 
   async init(): Promise<void> {
     const m = tf.sequential();
@@ -47,9 +48,20 @@ export class CNNModel implements TeachModel {
     optimizer.minimize(() => {
       const logits = this.model!.predict(batch.x) as tf.Tensor2D;
       const onehot = tf.oneHot(batch.y as tf.Tensor1D, 36);
-      const loss = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
-      lossValue = (loss.dataSync?.()[0] as number) ?? 0;
-      return loss as tf.Scalar;
+      const ce = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
+      let total = ce as tf.Tensor;
+      if (this.weightDecay > 0) {
+        for (const layer of this.model!.layers) {
+          const ws = layer.getWeights();
+          if (ws.length > 0) {
+            const w = ws[0];
+            const l2 = tf.mul(0.5 * this.weightDecay, tf.sum(tf.square(w)));
+            total = tf.add(total, l2);
+          }
+        }
+      }
+      lossValue = (total.dataSync?.()[0] as number) ?? 0;
+      return total as tf.Scalar;
     });
     optimizer.dispose();
     return { loss: lossValue };
@@ -62,7 +74,7 @@ export class CNNModel implements TeachModel {
     return { acc: 0 };
   }
 
-  async getVisuals(): Promise<Visuals> {
+  async getVisuals(inputSample?: tf.Tensor4D): Promise<Visuals> {
     if (!this.model) return {};
     const conv = this.model.layers.find((l) => l.getClassName() === "Conv2D");
     if (!conv) return {};
@@ -74,6 +86,12 @@ export class CNNModel implements TeachModel {
     const kw = arr[0]?.length ?? 0;
     const outC = arr[0]?.[0]?.[0]?.length ?? 0;
     const tiles: { name: string; grid: number[][] }[] = [];
+    const tilesArr: {
+      name: string;
+      width: number;
+      height: number;
+      data: Float32Array;
+    }[] = [];
     for (let f = 0; f < outC; f++) {
       const grid: number[][] = Array.from({ length: kh }, () =>
         Array(kw).fill(0),
@@ -95,14 +113,75 @@ export class CNNModel implements TeachModel {
         }
       }
       const range = max - min || 1;
+      const flat = new Float32Array(kh * kw);
       for (let y = 0; y < kh; y++) {
         for (let x = 0; x < kw; x++) {
-          grid[y][x] = (grid[y][x] - min) / range;
+          const norm = (grid[y][x] - min) / range;
+          grid[y][x] = norm;
+          flat[y * kw + x] = norm;
         }
       }
       tiles.push({ name: `Filter ${f}`, grid });
+      tilesArr.push({ name: `Filter ${f}`, width: kw, height: kh, data: flat });
     }
-    return { filters: tiles };
+    const visuals: Visuals = { filters: tiles, filtersArr: tilesArr };
+    // Optional: first conv layer feature maps for current sample (12x12 after conv+pool)
+    if (inputSample) {
+      try {
+        const fm = tf.tidy(() => {
+          const layers = this.model!.layers;
+          const convOut = (
+            layers[0] as { apply: (x: tf.Tensor) => tf.Tensor }
+          ).apply(inputSample) as tf.Tensor4D;
+          const pooled = (
+            layers[1] as { apply: (x: tf.Tensor) => tf.Tensor }
+          ).apply(convOut) as tf.Tensor4D;
+          return pooled as tf.Tensor4D;
+        });
+        const fArr = (await fm.array()) as number[][][][]; // [1,h,w,c]
+        const h = fArr[0].length;
+        const w = fArr[0][0].length;
+        const c = fArr[0][0][0].length;
+        const actTiles: { layer: string; grid: number[][] }[] = [];
+        const actArr: {
+          layer: string;
+          width: number;
+          height: number;
+          data: Float32Array;
+        }[] = [];
+        for (let k = 0; k < Math.min(c, 8); k++) {
+          const grid: number[][] = Array.from({ length: h }, () =>
+            Array(w).fill(0),
+          );
+          let min = Infinity,
+            max = -Infinity;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const v = fArr[0][y][x][k];
+              if (v < min) min = v;
+              if (v > max) max = v;
+            }
+          }
+          const range = max - min || 1;
+          const flat = new Float32Array(h * w);
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const norm = (fArr[0][y][x][k] - min) / range;
+              grid[y][x] = norm;
+              flat[y * w + x] = norm;
+            }
+          }
+          actTiles.push({ layer: "conv1", grid });
+          actArr.push({ layer: "conv1", width: w, height: h, data: flat });
+        }
+        visuals.activations = actTiles;
+        visuals.activationsArr = actArr;
+        fm.dispose();
+      } catch {
+        // ignore
+      }
+    }
+    return visuals;
   }
 
   async serialize(): Promise<Record<string, unknown>> {
@@ -163,8 +242,13 @@ export class CNNModel implements TeachModel {
     this.model = null;
   }
 
-  setHyperparams(h: { learningRate: number; optimizer: "sgd" | "adam" }) {
+  setHyperparams(h: {
+    learningRate: number;
+    optimizer: "sgd" | "adam";
+    weightDecay?: number;
+  }) {
     this.learningRate = Math.max(1e-5, Math.min(1, h.learningRate));
     this.optimizerType = h.optimizer;
+    this.weightDecay = Math.max(0, h.weightDecay ?? 0);
   }
 }

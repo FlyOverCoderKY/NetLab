@@ -7,6 +7,26 @@ export type TrainConfig = {
   weightDecay?: number;
   steps: number;
   snapshotEvery: number;
+  dataset?: {
+    fontFamily: string;
+    fontSize: number;
+    thickness: number;
+    jitterPx: number;
+    rotationDeg: number;
+    invert: boolean;
+    noise: boolean;
+  };
+};
+
+export type SetWeightsPayload = {
+  modelType: "softmax";
+  op: "zero-class" | "randomize-class";
+  classIndex: number; // 0..35
+};
+
+export type SetOverlayPayload = {
+  enabled: boolean;
+  classIndex?: number; // for softmax: 0..35
 };
 
 export type InMsg =
@@ -15,7 +35,8 @@ export type InMsg =
   | { type: "step"; payload?: Record<string, never> }
   | { type: "run"; payload: { steps: number } }
   | { type: "pause" }
-  | { type: "set-weights"; payload: unknown }
+  | { type: "set-weights"; payload: SetWeightsPayload }
+  | { type: "set-overlay"; payload: SetOverlayPayload }
   | { type: "get-weights" }
   | { type: "save-weights" }
   | { type: "load-weights"; payload: { state: unknown } }
