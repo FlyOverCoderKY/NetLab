@@ -31,12 +31,25 @@ const AnatomyPanel: React.FC = () => {
           height: number;
           data: Float32Array;
         }[];
+        overlaysArr?: {
+          name: string;
+          width: number;
+          height: number;
+          data: Float32Array;
+        }[];
         // legacy nested arrays (fallback)
         weights?: { name: string; grid: number[][] }[];
         filters?: { name: string; grid: number[][] }[];
         activations?: { layer: string; grid: number[][] }[];
       }) => {
         const items: WeightTile[] = [];
+        if (payload?.overlaysArr)
+          items.push(
+            ...payload.overlaysArr.map((t) => ({
+              name: t.name,
+              grid: toGrid(t.width, t.height, t.data),
+            })),
+          );
         // Prefer flat arrays when available
         const toGrid = (
           width: number,

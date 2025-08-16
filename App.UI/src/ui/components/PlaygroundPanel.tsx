@@ -59,13 +59,21 @@ const PlaygroundPanel: React.FC = () => {
     if (!auto) return;
     const id = setInterval(
       () => {
-        setIdx((i) => (i + 1) % CLASS_LIST.length);
-        predict();
+        setIdx((i) => {
+          const next = (i + 1) % CLASS_LIST.length;
+          // Predict on the next sample to keep UI and prediction in sync
+          const rng = new XorShift32(dataset.seed + next);
+          const ch = CLASS_LIST[next % CLASS_LIST.length];
+          const nextSample = renderGlyphTo28x28(ch, dataset, rng);
+          const c = getTrainerClient();
+          c.predict(nextSample);
+          return next;
+        });
       },
       Math.max(500, intervalSec * 1000),
     );
     return () => clearInterval(id);
-  }, [auto, intervalSec, predict]);
+  }, [auto, intervalSec, dataset]);
 
   const topk = useMemo(() => {
     if (!probs) return [] as Array<{ label: string; p: number }>;
