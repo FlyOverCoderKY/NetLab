@@ -18,16 +18,10 @@ function App() {
       {(theme) => (
         <div className="App" data-theme={theme.resolvedAppearance}>
           <AppHeader
-            title="Template Header"
-            subtitle="A clean starting point with theming and layout"
+            title="Neural Network Visualizer"
+            subtitle="Visualize the output of a neural network"
           />
           <main style={{ flex: 1 }}>
-            <section className="gradient-bg" style={{ padding: "2rem 1rem" }}>
-              <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-                <h2>Welcome</h2>
-                <p>Build your content here.</p>
-              </div>
-            </section>
             <DatasetPanel />
           </main>
           <Footer backend={backend} />
