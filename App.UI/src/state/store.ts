@@ -18,6 +18,7 @@ export type DatasetParams = {
   rotationDeg: number;
   invert: boolean;
   noise: boolean;
+  ocrPreset?: boolean;
 };
 
 export type TrainingParams = {
@@ -32,6 +33,7 @@ type State = {
   tab: AppTab;
   dataset: DatasetParams;
   training: TrainingParams;
+  ocrSamples: Float32Array[];
 };
 
 type Actions = {
@@ -39,6 +41,7 @@ type Actions = {
   setTab: (tab: AppTab) => void;
   setDataset: (update: Partial<DatasetParams>) => void;
   setTraining: (update: Partial<TrainingParams>) => void;
+  setOcrSamples: (samples: Float32Array[]) => void;
 };
 
 export const useAppStore = create<State & Actions>((set) => ({
@@ -53,6 +56,7 @@ export const useAppStore = create<State & Actions>((set) => ({
     rotationDeg: 4,
     invert: false,
     noise: false,
+    ocrPreset: false,
   },
   training: {
     learningRate: 0.01,
@@ -60,10 +64,12 @@ export const useAppStore = create<State & Actions>((set) => ({
     optimizer: "sgd",
     weightDecay: 0,
   },
+  ocrSamples: [],
   setMode: (mode) => set({ mode }),
   setTab: (tab) => set({ tab }),
   setDataset: (update) =>
     set((s) => ({ dataset: { ...s.dataset, ...update } })),
   setTraining: (update) =>
     set((s) => ({ training: { ...s.training, ...update } })),
+  setOcrSamples: (samples) => set({ ocrSamples: samples }),
 }));

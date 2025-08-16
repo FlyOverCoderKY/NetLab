@@ -13,6 +13,9 @@ export type GlyphParams = {
   rotationDeg: number;
   invert: boolean;
   noise: boolean;
+  // Optional: scale content within 28x28 to control margins
+  contentScale?: number; // 0.5..1.0
+  contentJitter?: number; // 0..0.5 (± around contentScale)
 };
 
 export async function waitForFontsReady(): Promise<void> {
@@ -97,8 +100,16 @@ export function renderGlyphTo28x28(
       ? "#fff"
       : "#000";
     const family = params.fontFamily || BUNDLED_FONT_FAMILY;
+    const baseSize = params.fontSize;
+    const cs = Math.max(0.5, Math.min(1, params.contentScale ?? 1));
+    const jitter = Math.max(0, Math.min(0.5, params.contentJitter ?? 0));
+    const effScale = Math.max(
+      0.5,
+      Math.min(1, cs + (rng.next() * 2 - 1) * jitter),
+    );
+    const effSize = Math.max(8, Math.floor(baseSize * effScale));
     (ctx as CanvasRenderingContext2D).font =
-      `${params.fontSize}px ${family}, sans-serif`;
+      `${effSize}px ${family}, sans-serif`;
     // Drawing text – in workers, fonts may differ; acceptable for current use.
     ctx.fillText(char, 0, 0);
     ctx.restore();

@@ -5,7 +5,7 @@ type FooterProps = {
   backend?: string;
 };
 
-const Footer: React.FC<FooterProps> = ({ backend }) => {
+const Footer: React.FC<FooterProps> = () => {
   const year = new Date().getFullYear();
   return (
     <footer className="site-footer" role="contentinfo" aria-label="Footer">
@@ -21,9 +21,6 @@ const Footer: React.FC<FooterProps> = ({ backend }) => {
             FlyOverCoder.com
           </a>
           . All rights reserved.
-        </p>
-        <p className="site-footer__text" aria-live="polite">
-          Backend: {backend ?? "—"}
         </p>
       </div>
     </footer>

@@ -55,6 +55,20 @@ const PlaygroundPanel: React.FC = () => {
     c.predict(sample);
   }, [sample]);
 
+  // OCR bridge: if OCR samples exist, allow stepping through them
+  const ocrSamples = useAppStore((s) => s.ocrSamples);
+  const [useOcr, setUseOcr] = useState(false);
+  const ocrIndex = Math.min(ocrSamples.length - 1, Math.max(0, idx));
+  const current = useMemo(
+    () => (useOcr && ocrSamples.length ? ocrSamples[ocrIndex] : sample),
+    [useOcr, ocrSamples, ocrIndex, sample],
+  );
+  useEffect(() => {
+    if (!useOcr || !ocrSamples.length) return;
+    const c = getTrainerClient();
+    c.predict(current);
+  }, [useOcr, ocrSamples, ocrIndex, current]);
+
   useEffect(() => {
     if (!auto) return;
     const id = setInterval(
@@ -94,7 +108,7 @@ const PlaygroundPanel: React.FC = () => {
         }}
       >
         <div>
-          <Canvas28 data={sample} />
+          <Canvas28 data={current} />
         </div>
         <div>
           <h4>Top-5</h4>
@@ -147,6 +161,14 @@ const PlaygroundPanel: React.FC = () => {
           Next
         </button>
         <button onClick={predict}>Predict</button>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={useOcr}
+            onChange={(e) => setUseOcr(e.target.checked)}
+          />
+          <span>Use OCR model inputs</span>
+        </label>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <input
             type="checkbox"

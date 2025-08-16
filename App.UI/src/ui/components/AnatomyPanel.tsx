@@ -43,14 +43,6 @@ const AnatomyPanel: React.FC = () => {
         activations?: { layer: string; grid: number[][] }[];
       }) => {
         const items: WeightTile[] = [];
-        if (payload?.overlaysArr)
-          items.push(
-            ...payload.overlaysArr.map((t) => ({
-              name: t.name,
-              grid: toGrid(t.width, t.height, t.data),
-            })),
-          );
-        // Prefer flat arrays when available
         const toGrid = (
           width: number,
           height: number,
@@ -63,6 +55,14 @@ const AnatomyPanel: React.FC = () => {
             for (let x = 0; x < width; x++) g[y][x] = data[y * width + x];
           return g;
         };
+        if (payload?.overlaysArr)
+          items.push(
+            ...payload.overlaysArr.map((t) => ({
+              name: t.name,
+              grid: toGrid(t.width, t.height, t.data),
+            })),
+          );
+        // Prefer flat arrays when available
         if (payload?.weightsArr)
           items.push(
             ...payload.weightsArr.map((t) => ({

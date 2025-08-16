@@ -8,6 +8,7 @@ type ListenerMap = {
   compiled: ((p: { params: number }) => void)[];
   done: (() => void)[];
   prediction: ((p: { probs: Float32Array }) => void)[];
+  "prediction-batch": ((p: { probs: Float32Array; n: number }) => void)[];
   visuals: ((v: Visuals) => void)[];
   confusion: ((p: { labels: string[]; matrix: number[][] }) => void)[];
   weights: ((p: { model: string; state: unknown }) => void)[];
@@ -22,6 +23,7 @@ class TrainerClient {
     compiled: [],
     done: [],
     prediction: [],
+    "prediction-batch": [],
     visuals: [],
     confusion: [],
     weights: [],
@@ -55,6 +57,11 @@ class TrainerClient {
         case "prediction":
           this.listeners.prediction.forEach((cb) =>
             cb(msg.payload as { probs: Float32Array }),
+          );
+          break;
+        case "prediction-batch":
+          this.listeners["prediction-batch"].forEach((cb) =>
+            cb(msg.payload as { probs: Float32Array; n: number }),
           );
           break;
         case "weights":
@@ -115,6 +122,14 @@ class TrainerClient {
   predict(x: Float32Array) {
     const msg: InMsg = { type: "predict", payload: { x } } as InMsg;
     // Use transfer list for performance
+    this.worker.postMessage(msg, [x.buffer]);
+  }
+
+  predictBatch(x: Float32Array, n: number) {
+    const msg: InMsg = {
+      type: "predict-batch",
+      payload: { x, n },
+    } as InMsg;
     this.worker.postMessage(msg, [x.buffer]);
   }
 

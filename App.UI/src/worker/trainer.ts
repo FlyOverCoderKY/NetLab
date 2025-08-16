@@ -8,6 +8,7 @@ import type {
   SetOverlayPayload,
 } from "./messages";
 import * as tf from "@tensorflow/tfjs";
+import "@tensorflow/tfjs-backend-webgl";
 import "@tensorflow/tfjs-backend-wasm";
 import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
 // Bundle wasm assets via Vite and point TFJS to the right URLs
@@ -57,14 +58,25 @@ function handleInit(payload: { backend: "webgl" | "wasm" }) {
   } catch {
     // ignore, TFJS will try defaults
   }
-  tf.setBackend("wasm")
-    .catch(async () => {
-      // Fallback to CPU if WASM fails to initialize (e.g., wrong MIME)
-      await tf.setBackend("cpu");
-    })
-    .then(() => {
-      postMessage({ type: "ready" } as OutMsg);
-    });
+  const init = async () => {
+    // Prefer WebGL for training (WASM lacks some conv backprop kernels)
+    try {
+      await tf.setBackend("webgl");
+      return;
+    } catch {
+      // WebGL backend failed, try WASM next
+    }
+    try {
+      await tf.setBackend("wasm");
+      return;
+    } catch {
+      // WASM backend failed, fall back to CPU
+    }
+    await tf.setBackend("cpu");
+  };
+  init().then(() => {
+    postMessage({ type: "ready" } as OutMsg);
+  });
 }
 
 function handleCompile(cfg: TrainConfig) {
@@ -79,12 +91,14 @@ function handleCompile(cfg: TrainConfig) {
     {
       seed: cfg.seed,
       fontFamily: cfg.dataset?.fontFamily ?? "Inter",
-      fontSize: cfg.dataset?.fontSize ?? 20,
-      thickness: cfg.dataset?.thickness ?? 20,
-      jitterPx: cfg.dataset?.jitterPx ?? 1,
-      rotationDeg: cfg.dataset?.rotationDeg ?? 4,
+      fontSize: Math.max(8, Math.min(28, cfg.dataset?.fontSize ?? 20)),
+      thickness: Math.max(1, Math.min(28, cfg.dataset?.thickness ?? 20)),
+      jitterPx: Math.max(0, Math.min(3, cfg.dataset?.jitterPx ?? 1)),
+      rotationDeg: Math.max(0, Math.min(15, cfg.dataset?.rotationDeg ?? 4)),
       invert: cfg.dataset?.invert ?? false,
       noise: cfg.dataset?.noise ?? false,
+      contentScale: cfg.dataset?.contentScale ?? 1,
+      contentJitter: cfg.dataset?.contentJitter ?? 0,
     },
     cfg.batchSize,
   );
@@ -93,12 +107,14 @@ function handleCompile(cfg: TrainConfig) {
     {
       seed: cfg.seed + 9999,
       fontFamily: cfg.dataset?.fontFamily ?? "Inter",
-      fontSize: cfg.dataset?.fontSize ?? 20,
-      thickness: cfg.dataset?.thickness ?? 20,
-      jitterPx: cfg.dataset?.jitterPx ?? 1,
-      rotationDeg: cfg.dataset?.rotationDeg ?? 4,
+      fontSize: Math.max(8, Math.min(28, cfg.dataset?.fontSize ?? 20)),
+      thickness: Math.max(1, Math.min(28, cfg.dataset?.thickness ?? 20)),
+      jitterPx: Math.max(0, Math.min(3, cfg.dataset?.jitterPx ?? 1)),
+      rotationDeg: Math.max(0, Math.min(15, cfg.dataset?.rotationDeg ?? 4)),
       invert: cfg.dataset?.invert ?? false,
       noise: cfg.dataset?.noise ?? false,
+      contentScale: cfg.dataset?.contentScale ?? 1,
+      contentJitter: cfg.dataset?.contentJitter ?? 0,
     },
     36,
   );
@@ -164,7 +180,7 @@ function postMetrics() {
   } as OutMsg);
 }
 
-function handleStep() {
+async function handleStep() {
   if (!compiled) return;
   stepCounter += 1;
   if (!model) {
@@ -182,22 +198,24 @@ function handleStep() {
     const { value } = dataIterator.next();
     if (value) {
       const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
-      model
-        .trainStep(batch)
-        .then((r: { loss?: number }) => {
-          if (typeof r?.loss === "number" && !Number.isNaN(r.loss)) {
-            lastLoss = r.loss;
-          } else {
-            lastLoss = Math.max(0, lastLoss * 0.995 + Math.random() * 0.0025);
-          }
-          batch.x.dispose();
-          batch.y.dispose();
-        })
-        .catch(() => {
+      try {
+        const r = await model.trainStep(batch);
+        if (typeof r?.loss === "number" && !Number.isNaN(r.loss)) {
+          lastLoss = r.loss;
+        } else {
           lastLoss = Math.max(0, lastLoss * 0.995 + Math.random() * 0.0025);
+        }
+      } catch (err) {
+        console.error("trainStep failed", err);
+        lastLoss = Math.max(0, lastLoss * 0.995 + Math.random() * 0.0025);
+      } finally {
+        try {
           batch.x.dispose();
           batch.y.dispose();
-        });
+        } catch {
+          // ignore
+        }
+      }
     }
   } else {
     // fallback: simulated loss trend
@@ -282,14 +300,15 @@ function handleStep() {
         })
         .catch(() => void 0);
       // Accuracy and confusion estimate on a small validation batch to limit cost
-      if (valIterator) {
+      if (valIterator && model) {
         try {
           const { value } = valIterator.next();
           if (value) {
             const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
             (async () => {
               try {
-                const { probs } = await model!.predict(batch.x);
+                const out = await model.predict(batch.x);
+                const probs = out.probs;
                 const { acc, preds } = tf.tidy(() => {
                   const preds = probs.argMax(1);
                   const correct = tf.equal(preds, batch.y).sum() as tf.Scalar;
@@ -350,19 +369,26 @@ function handleRun(totalSteps: number) {
   let remaining = totalSteps;
   if (rafId != null) cancelAnimationFrame(rafId);
   isRunning = true;
-  const tick = () => {
+  const tick = async () => {
     if (!isRunning) return;
     const batch = Math.min(remaining, 10);
-    for (let i = 0; i < batch; i++) handleStep();
+    for (let i = 0; i < batch; i++) {
+      // Await each step to avoid overlapping tensor allocations
+      await handleStep();
+    }
     remaining -= batch;
     if (remaining <= 0) {
       isRunning = false;
       postMessage({ type: "done", payload: {} } as OutMsg);
       return;
     }
-    rafId = requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(() => {
+      void tick();
+    });
   };
-  rafId = requestAnimationFrame(tick);
+  rafId = requestAnimationFrame(() => {
+    void tick();
+  });
 }
 
 self.onmessage = (e: MessageEvent<InMsg>) => {
@@ -555,12 +581,54 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
         }
         const run = async () => {
           if (modelInitPromise) await modelInitPromise;
-          const x = tf.tensor4d(input, [1, 28, 28, 1], "float32");
+          const total = input.length | 0;
+          const expected = 28 * 28;
+          if (total < expected)
+            throw new Error("predict: insufficient input length");
+          const slice = total > expected ? input.subarray(0, expected) : input;
+          const x = tf.tensor4d(slice, [1, 28, 28, 1], "float32");
           const { probs } = await model!.predict(x);
           const arr = Float32Array.from(await probs.data());
           // Transfer the buffer for performance
           postMessage(
             { type: "prediction", payload: { probs: arr } } as OutMsg,
+            [arr.buffer],
+          );
+          x.dispose();
+          probs.dispose();
+        };
+        run();
+      } catch (err) {
+        postMessage({
+          type: "error",
+          payload: { message: String(err) },
+        } as OutMsg);
+      }
+      break;
+    }
+    case "predict-batch": {
+      const input = msg.payload.x; // expects n*28*28 grayscale
+      let n = Math.max(1, (msg.payload.n as number) | 0);
+      try {
+        if (!model) {
+          model = createModel(currentCfg?.modelType ?? "softmax");
+          modelInitPromise = model.init();
+        }
+        const run = async () => {
+          if (modelInitPromise) await modelInitPromise;
+          const expected = n * 28 * 28;
+          const total = input.length | 0;
+          if (total < expected) {
+            n = Math.floor(total / (28 * 28));
+          }
+          if (n <= 0) throw new Error("predict-batch: no samples in batch");
+          const needed = n * 28 * 28;
+          const slice = total > needed ? input.subarray(0, needed) : input;
+          const x = tf.tensor4d(slice, [n, 28, 28, 1], "float32");
+          const { probs } = await model!.predict(x);
+          const arr = Float32Array.from(await probs.data()); // length n*36
+          postMessage(
+            { type: "prediction-batch", payload: { probs: arr, n } } as OutMsg,
             [arr.buffer],
           );
           x.dispose();

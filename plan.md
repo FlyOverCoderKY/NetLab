@@ -519,3 +519,17 @@ Current:
 Current:
 - Deployed via GitHub Actions to Azure Static Web Apps with prebuilt `dist` artifacts.
 
+
+
+Improvemnt notes:
+
+A few suggestions I would like to see eventually once we improve the OCR accuracy would be:
+1) Could we move the OCR training preset from the train page to the dataset page? I'd like to actually see what that setting looks like in the Dataset tool.
+2) Keep in mind that the goal of this site is to be educational and demo to users the might not understand neural networks how they work. With that in mind, I think the flow of the site is clunky and if you didn't know what you're doing it would be hard to use or learn anything from the site in it's current state. 
+3) In line with the previoud point, would it be better to split the site up differently? 
+a) first tab is an About Neural Networks informative tab that can teach the user what neural networks are (please generate and include educational ilistrative images in the content as needed). 
+b) Next tab is training data (rename the current Dataset tab). again add a more info and guidance to the user to educate them on what the traning data is and how it will be used.
+c) Next tab is "Train" would it be better to combine the Train and Anatomy tab into this one tab? I don't like having to switch back and forth while it's traning. I think it would be more impressive to the user to see it all at one. and again, don't just train include more educational content about what it's doing and why.
+d) Next tab would then be Playground, (or possibley a better name) and I'm thinking here it would combine the existing playground tab and the OCR tab. so that the user can see both how one letter is evaluated, as well as the bigger picture of how it can scan for image text.
+e) regarding the mode selector and the math tab would it be more simple to just put that on the Train tab? is the selected mode relevent to any of the other tabs? or is there only value in seeing changeing the mode in conjunction with running the training? and the math is driven off the mode correct, so it would seem more logical to tie those togeather. 
+4) A longer term nice to have once the major issues with the OCR and site orginization is fixed would be to expand the training data to include potentially lower case letters and different fonts. 

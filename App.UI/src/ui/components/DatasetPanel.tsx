@@ -45,10 +45,14 @@ const DatasetPanel: React.FC = () => {
       fontFamily: dataset.fontFamily,
       fontSize: dataset.fontSize,
       thickness: dataset.thickness,
-      jitterPx: dataset.jitterPx,
+      jitterPx: dataset.ocrPreset
+        ? Math.max(1, dataset.jitterPx)
+        : dataset.jitterPx,
       rotationDeg: dataset.rotationDeg,
       invert: dataset.invert,
       noise: dataset.noise,
+      contentScale: dataset.ocrPreset ? 0.8 : 1,
+      contentJitter: dataset.ocrPreset ? 0.1 : 0,
     }),
     [dataset],
   );
@@ -72,6 +76,14 @@ const DatasetPanel: React.FC = () => {
         }}
       >
         <div>
+          <label style={{ display: "block", marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!dataset.ocrPreset}
+              onChange={(e) => setDataset({ ocrPreset: e.target.checked })}
+            />{" "}
+            OCR preset (margins + jitter)
+          </label>
           <Slider
             label="Seed"
             min={0}

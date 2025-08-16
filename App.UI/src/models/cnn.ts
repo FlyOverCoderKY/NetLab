@@ -18,7 +18,7 @@ export class CNNModel implements TeachModel {
         kernelSize: 5,
         activation: "relu",
         useBias: true,
-        padding: "valid",
+        padding: "same",
       }),
     );
     m.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
@@ -45,23 +45,31 @@ export class CNNModel implements TeachModel {
     const optimizer =
       this.optimizerType === "adam" ? tf.train.adam(lr) : tf.train.sgd(lr);
     let lossValue = 0;
-    optimizer.minimize(() => {
-      const logits = this.model!.predict(batch.x) as tf.Tensor2D;
-      const onehot = tf.oneHot(batch.y as tf.Tensor1D, 36);
-      const ce = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
-      let total = ce as tf.Tensor;
-      if (this.weightDecay > 0) {
-        for (const layer of this.model!.layers) {
-          const ws = layer.getWeights();
-          if (ws.length > 0) {
-            const w = ws[0];
-            const l2 = tf.mul(0.5 * this.weightDecay, tf.sum(tf.square(w)));
-            total = tf.add(total, l2);
+    tf.tidy(() => {
+      const { value, grads } = tf.variableGrads(() => {
+        const logits = this.model!.predict(batch.x) as tf.Tensor2D;
+        const onehot = tf.oneHot(batch.y as tf.Tensor1D, 36);
+        const ce = tf.losses.softmaxCrossEntropy(onehot, logits).mean();
+        let total = ce as tf.Tensor;
+        if (this.weightDecay > 0) {
+          for (const layer of this.model!.layers) {
+            const ws = layer.getWeights();
+            if (ws.length > 0) {
+              const w = ws[0];
+              const l2 = tf.mul(0.5 * this.weightDecay, tf.sum(tf.square(w)));
+              total = tf.add(total, l2);
+            }
           }
         }
-      }
-      lossValue = (total.dataSync?.()[0] as number) ?? 0;
-      return total as tf.Scalar;
+        return total as tf.Scalar;
+      });
+      lossValue = (value.dataSync?.()[0] as number) ?? 0;
+      // Use type assertion to bypass the type checking issue with TensorFlow.js types
+      (
+        optimizer as { applyGradients: (grads: tf.NamedTensorMap) => void }
+      ).applyGradients(grads);
+      Object.values(grads).forEach((g) => g.dispose());
+      value.dispose();
     });
     optimizer.dispose();
     return { loss: lossValue };

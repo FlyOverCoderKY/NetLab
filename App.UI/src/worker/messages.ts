@@ -15,6 +15,8 @@ export type TrainConfig = {
     rotationDeg: number;
     invert: boolean;
     noise: boolean;
+    contentScale?: number;
+    contentJitter?: number;
   };
 };
 
@@ -42,6 +44,7 @@ export type InMsg =
   | { type: "load-weights"; payload: { state: unknown } }
   | { type: "switch-model"; payload: { modelType: TrainConfig["modelType"] } }
   | { type: "predict"; payload: { x: Float32Array } }
+  | { type: "predict-batch"; payload: { x: Float32Array; n: number } }
   | { type: "dispose" };
 
 export type OutMsg =
@@ -53,4 +56,5 @@ export type OutMsg =
   | { type: "weights"; payload: { model: string; state: unknown } }
   | { type: "error"; payload: { message: string } }
   | { type: "prediction"; payload: { probs: Float32Array } }
+  | { type: "prediction-batch"; payload: { probs: Float32Array; n: number } }
   | { type: "done"; payload?: Record<string, never> };

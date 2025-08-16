@@ -11,6 +11,8 @@ const TrainPanel: React.FC = () => {
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [showConfusion, setShowConfusion] = useState(false);
   const [overlays, setOverlays] = useState(false);
+  const ocrPreset = !!useAppStore((s) => s.dataset.ocrPreset);
+  const setDataset = useAppStore((s) => s.setDataset);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const mode = useAppStore((s) => s.mode);
@@ -32,15 +34,17 @@ const TrainPanel: React.FC = () => {
         fontFamily: dataset.fontFamily,
         fontSize: dataset.fontSize,
         thickness: dataset.thickness,
-        jitterPx: dataset.jitterPx,
+        jitterPx: ocrPreset ? Math.max(1, dataset.jitterPx) : dataset.jitterPx,
         rotationDeg: dataset.rotationDeg,
         invert: dataset.invert,
         noise: dataset.noise,
+        contentScale: ocrPreset ? 0.8 : 1,
+        contentJitter: ocrPreset ? 0.1 : 0,
       },
     });
     client.run(5000);
     setRunning(true);
-  }, [running, mode, training, dataset]);
+  }, [running, mode, training, dataset, ocrPreset]);
   const pause = useCallback(() => {
     getTrainerClient().pause();
     setRunning(false);
@@ -84,14 +88,16 @@ const TrainPanel: React.FC = () => {
         fontFamily: dataset.fontFamily,
         fontSize: dataset.fontSize,
         thickness: dataset.thickness,
-        jitterPx: dataset.jitterPx,
+        jitterPx: ocrPreset ? Math.max(1, dataset.jitterPx) : dataset.jitterPx,
         rotationDeg: dataset.rotationDeg,
         invert: dataset.invert,
         noise: dataset.noise,
+        contentScale: ocrPreset ? 0.8 : 1,
+        contentJitter: ocrPreset ? 0.1 : 0,
       },
     });
     client.step();
-  }, [mode, training, dataset]);
+  }, [mode, training, dataset, ocrPreset]);
 
   useEffect(() => {
     const client = getTrainerClient();
@@ -187,6 +193,16 @@ const TrainPanel: React.FC = () => {
         {last
           ? `Step ${last.step} — Loss ${last.loss.toFixed(4)}${last.acc != null ? ` — Acc ${(last.acc * 100).toFixed(1)}%` : ""}`
           : "Idle"}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={ocrPreset}
+            onChange={(e) => setDataset({ ocrPreset: e.target.checked })}
+          />
+          <span>OCR training preset (margin/shape jitter)</span>
+        </label>
       </div>
       <MiniChart data={metrics} />
       <p style={{ marginTop: 8, color: "var(--color-foreground-subtle)" }}>

@@ -1,16 +1,9 @@
-export const BUNDLED_FONT_FAMILY = "NetLabDemo";
+// Default to a widely available system font to avoid loading a missing asset
+export const BUNDLED_FONT_FAMILY = "Inter";
 
 export function registerBundledFonts(): void {
-  try {
-    const id = "netlab-font-style";
-    if (document.getElementById(id)) return;
-    const style = document.createElement("style");
-    style.id = id;
-    style.textContent = `@font-face{font-family:${BUNDLED_FONT_FAMILY};src:url('/fonts/NetLabDemo.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}`;
-    document.head.appendChild(style);
-  } catch {
-    // ignore
-  }
+  // No-op until we bundle actual font assets
+  return;
 }
 
 export async function waitForBundledFontReady(): Promise<void> {
