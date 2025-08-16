@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../state/store";
 import { getTrainerClient } from "../../worker/client";
+import ConfusionMatrix from "./ConfusionMatrix";
 
 type Metric = { step: number; loss: number; acc?: number };
 
@@ -8,6 +9,7 @@ const TrainPanel: React.FC = () => {
   const training = useAppStore((s) => s.training);
   const [running, setRunning] = useState(false);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [showConfusion, setShowConfusion] = useState(false);
 
   const mode = useAppStore((s) => s.mode);
 
@@ -94,6 +96,17 @@ const TrainPanel: React.FC = () => {
           : "Idle"}
       </div>
       <MiniChart data={metrics} />
+      <div style={{ marginTop: 12 }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={showConfusion}
+            onChange={(e) => setShowConfusion(e.target.checked)}
+          />
+          <span>Show confusion matrix</span>
+        </label>
+      </div>
+      {showConfusion ? <ConfusionMatrix /> : null}
     </section>
   );
 };

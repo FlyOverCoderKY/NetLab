@@ -330,6 +330,7 @@ Current:
 Current:
 - Added `Heatmap` component to render 28×28 grids with grayscale scaling. ✅
 - Implemented `SoftmaxModel.getVisuals()` to produce per-class 28×28 normalized tiles from Dense kernel weights. ✅
+- Implemented MLP first-layer tiles via `MLPModel.getVisuals()` (capped to 36 per snapshot) and added pagination in `AnatomyPanel`. ✅
 - Worker emits `visuals` messages on snapshots; client forwards them; `AnatomyPanel` subscribes and renders tiles. ✅
 
 ---
@@ -349,7 +350,8 @@ Current:
 - Matrix re-renders smoothly; evaluation runs on worker thread.
 
 Current:
-- Worker computes and reports a small-batch accuracy during snapshots and it's displayed in `TrainPanel`. Confusion matrix UI/data wiring is pending. 🚧
+- Worker computes and reports a small-batch accuracy during snapshots and it's displayed in `TrainPanel`. ✅
+- Added `ConfusionMatrix` component and checkbox in Train panel to show it. Worker computes a tiny per-snapshot confusion matrix from a validation batch and streams it via `confusion` messages. ✅
 
 ---
 
@@ -367,6 +369,11 @@ Current:
 
 **DoD**
 - Accuracy > Softmax under mild augmentations with same train budget.
+
+Current:
+- Implemented `models/mlp.ts` with `Flatten → Dense(64, ReLU) → Dense(36)` and training loop, mirroring softmax for now. ✅
+- Added `createModel()` factory in `src/models/index.ts` and updated worker to instantiate model based on selected `mode`. ✅
+- `TrainPanel` now compiles using the current mode from the store. ✅
 
 ---
 

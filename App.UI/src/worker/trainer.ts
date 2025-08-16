@@ -4,7 +4,8 @@ import type { InMsg, OutMsg, TrainConfig } from "./messages";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-wasm";
 import { makeDataset } from "../data/dataset";
-import { SoftmaxModel } from "../models";
+import { createModel } from "../models";
+import type { Visuals } from "../models/types";
 
 let isRunning = false;
 let disposed = false;
@@ -16,7 +17,9 @@ let compiled = false;
 // Keep latest config for future training hooks
 let currentCfg: TrainConfig | null = null;
 let dataIterator: Generator<{ x: tf.Tensor4D; y: tf.Tensor1D }> | null = null;
-let model: SoftmaxModel | null = null;
+let valIterator: Generator<{ x: tf.Tensor4D; y: tf.Tensor1D }> | null = null;
+import type { TeachModel } from "../models/types";
+let model: TeachModel | null = null;
 let modelInitPromise: Promise<void> | null = null;
 
 function handleInit(payload: { backend: "webgl" | "wasm" }) {
@@ -50,6 +53,20 @@ function handleCompile(cfg: TrainConfig) {
     },
     cfg.batchSize,
   );
+  // Prepare small validation iterator with a different seed
+  valIterator = makeDataset(
+    {
+      seed: cfg.seed + 9999,
+      fontFamily: "Inter",
+      fontSize: 20,
+      thickness: 20,
+      jitterPx: 1,
+      rotationDeg: 4,
+      invert: false,
+      noise: false,
+    },
+    36,
+  );
   postMessage({
     type: "compiled",
     payload: { params: 36 * 784 + 36 },
@@ -67,7 +84,7 @@ function handleStep() {
   if (!compiled) return;
   stepCounter += 1;
   if (!model) {
-    model = new SoftmaxModel();
+    model = createModel(currentCfg?.modelType ?? "softmax");
     modelInitPromise = model.init();
   }
   if (modelInitPromise) {
@@ -83,7 +100,7 @@ function handleStep() {
       const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
       model
         .trainStep(batch)
-        .then((r) => {
+        .then((r: { loss?: number }) => {
           if (typeof r?.loss === "number" && !Number.isNaN(r.loss)) {
             lastLoss = r.loss;
           } else {
@@ -108,14 +125,14 @@ function handleStep() {
     if (model) {
       model
         .getVisuals()
-        .then((v) => {
+        .then((v: Visuals) => {
           postMessage({ type: "visuals", payload: v } as OutMsg);
         })
         .catch(() => void 0);
-      // Accuracy estimate on a tiny batch to limit cost
-      if (dataIterator) {
+      // Accuracy and confusion estimate on a small validation batch to limit cost
+      if (valIterator) {
         try {
-          const { value } = dataIterator.next();
+          const { value } = valIterator.next();
           if (value) {
             const batch = value as { x: tf.Tensor4D; y: tf.Tensor1D };
             (async () => {
@@ -132,6 +149,31 @@ function handleStep() {
                 postMessage({
                   type: "metrics",
                   payload: { step: stepCounter, loss: lastLoss, acc },
+                } as OutMsg);
+                // Compute a tiny confusion matrix for 36 classes from this batch
+                const predsArr = preds.dataSync() as Int32Array;
+                const labelsArr = batch.y.dataSync() as Int32Array;
+                const size = 36;
+                const cm: number[][] = Array.from({ length: size }, () =>
+                  Array(size).fill(0),
+                );
+                for (let i = 0; i < labelsArr.length; i++) {
+                  const yi = labelsArr[i] | 0;
+                  const pi = predsArr[i] | 0;
+                  cm[yi][pi] += 1;
+                }
+                // Normalize rows to sum to 1
+                for (let r = 0; r < size; r++) {
+                  const rowSum = cm[r].reduce((a, b) => a + b, 0) || 1;
+                  for (let c = 0; c < size; c++) cm[r][c] = cm[r][c] / rowSum;
+                }
+                // Emit confusion once per snapshot
+                postMessage({
+                  type: "confusion",
+                  payload: {
+                    labels: Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"),
+                    matrix: cm,
+                  },
                 } as OutMsg);
                 preds.dispose();
                 probs.dispose();
@@ -201,7 +243,7 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
       const input = msg.payload.x; // expects 28*28 grayscale
       try {
         if (!model) {
-          model = new SoftmaxModel();
+          model = createModel(currentCfg?.modelType ?? "softmax");
           modelInitPromise = model.init();
         }
         const run = async () => {
