@@ -7,13 +7,21 @@
 .gradient-bg {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent-a5, rgba(59,130,246,0.25)) 100%, transparent),
-    color-mix(in srgb, var(--accent-a8, rgba(59,130,246,0.45)) 100%, transparent)
+    color-mix(
+      in srgb,
+      var(--accent-a5, rgba(59, 130, 246, 0.25)) 100%,
+      transparent
+    ),
+    color-mix(
+      in srgb,
+      var(--accent-a8, rgba(59, 130, 246, 0.45)) 100%,
+      transparent
+    )
   );
 }
 
 @media (max-width: 520px) {
-  h1 { font-size: 1.5rem; }
+  h1 {
+    font-size: 1.5rem;
+  }
 }
-
-

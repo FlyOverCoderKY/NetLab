@@ -1,27 +1,30 @@
-import { Menu } from '@headlessui/react'
-import { useTheme } from '../context/ThemeContext'
-import './ThemeSwitcher.css'
+import { Menu } from "@headlessui/react";
+import { useTheme } from "../context/ThemeContext";
+import "./ThemeSwitcher.css";
 
 interface ThemeSwitcherProps {
-  appearance: 'light' | 'dark' | 'system'
-  onAppearanceChange: (appearance: 'light' | 'dark' | 'system') => void
+  appearance: "light" | "dark" | "system";
+  onAppearanceChange: (appearance: "light" | "dark" | "system") => void;
 }
 
-export function ThemeSwitcher({ appearance, onAppearanceChange }: ThemeSwitcherProps) {
-  useTheme()
+export function ThemeSwitcher({
+  appearance,
+  onAppearanceChange,
+}: ThemeSwitcherProps) {
+  useTheme();
 
   const getAppearanceIcon = () => {
     switch (appearance) {
-      case 'light':
-        return '☀️'
-      case 'dark':
-        return '🌙'
-      case 'system':
-        return '🖥️'
+      case "light":
+        return "☀️";
+      case "dark":
+        return "🌙";
+      case "system":
+        return "🖥️";
       default:
-        return '☀️'
+        return "☀️";
     }
-  }
+  };
 
   return (
     <Menu as="div" className="dropdown-container">
@@ -35,8 +38,8 @@ export function ThemeSwitcher({ appearance, onAppearanceChange }: ThemeSwitcherP
         <Menu.Item>
           {({ active }) => (
             <button
-              className={`dropdown-item ${active ? 'dropdown-item-active' : ''}`}
-              onClick={() => onAppearanceChange('light')}
+              className={`dropdown-item ${active ? "dropdown-item-active" : ""}`}
+              onClick={() => onAppearanceChange("light")}
             >
               ☀️ Light
             </button>
@@ -46,8 +49,8 @@ export function ThemeSwitcher({ appearance, onAppearanceChange }: ThemeSwitcherP
         <Menu.Item>
           {({ active }) => (
             <button
-              className={`dropdown-item ${active ? 'dropdown-item-active' : ''}`}
-              onClick={() => onAppearanceChange('dark')}
+              className={`dropdown-item ${active ? "dropdown-item-active" : ""}`}
+              onClick={() => onAppearanceChange("dark")}
             >
               🌙 Dark
             </button>
@@ -57,8 +60,8 @@ export function ThemeSwitcher({ appearance, onAppearanceChange }: ThemeSwitcherP
         <Menu.Item>
           {({ active }) => (
             <button
-              className={`dropdown-item ${active ? 'dropdown-item-active' : ''}`}
-              onClick={() => onAppearanceChange('system')}
+              className={`dropdown-item ${active ? "dropdown-item-active" : ""}`}
+              onClick={() => onAppearanceChange("system")}
             >
               🖥️ System
             </button>
@@ -66,7 +69,5 @@ export function ThemeSwitcher({ appearance, onAppearanceChange }: ThemeSwitcherP
         </Menu.Item>
       </Menu.Items>
     </Menu>
-  )
+  );
 }
-
-

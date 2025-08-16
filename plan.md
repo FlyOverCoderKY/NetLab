@@ -163,7 +163,7 @@ export type OutMsg =
 4. Configure worker bundling: create workers via `new Worker(new URL("./worker/trainer.ts", import.meta.url), { type: "module" })` and verify WASM assets resolve at runtime.
 
 **Deliverables**
-- App boots, shows chosen TF backend in footer.
+- App boots, shows chosen TF backend in footer. ✅ Completed.
 
 **DoD**
 - `npm run dev` renders “Backend: webgl|wasm”; build succeeds.
@@ -183,10 +183,10 @@ export type OutMsg =
 4. Preview grid in `DatasetPanel.tsx` with sliders.
 
 **Deliverables**
-- Can render a 6×6 sample grid of all classes with tunable noise.
+- Can render a 6×6 sample grid of all classes with tunable noise. ✅ Completed (basic version: `DatasetPanel` in `App.UI/src/ui/components/DatasetPanel.tsx`).
 
 **DoD**
-- Deterministic per seed on the same device (or cross-device if using bundled glyphs); no layout shift; 60fps when adjusting sliders.
+- Deterministic per seed on the same device (or cross-device if using bundled glyphs); no layout shift; 60fps when adjusting sliders. Current: deterministic per seed on same device; performance acceptable for initial version.
 
 ---
 
