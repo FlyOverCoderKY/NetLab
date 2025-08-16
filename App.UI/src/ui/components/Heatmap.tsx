@@ -17,7 +17,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ grid, size = 112, title }) => {
     c.width = size;
     c.height = size;
     const ctx = c.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return; // jsdom/no-canvas env
     const img = ctx.createImageData(w, h);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -41,7 +41,12 @@ const Heatmap: React.FC<HeatmapProps> = ({ grid, size = 112, title }) => {
   }, [grid, size]);
   return (
     <figure style={{ margin: 0 }}>
-      <canvas ref={ref} aria-label={title ?? "heatmap"} />
+      <canvas
+        ref={ref}
+        role="img"
+        aria-label={title ? `${title} heatmap` : "model weights heatmap"}
+        title={title ?? "Heatmap"}
+      />
       {title && (
         <figcaption
           style={{ fontSize: 12, color: "var(--color-foreground-subtle)" }}

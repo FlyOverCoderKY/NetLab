@@ -5,6 +5,8 @@ export interface ThemeContextType {
   appearance: "light" | "dark" | "system";
   setAppearance: (appearance: "light" | "dark" | "system") => void;
   resolvedAppearance: "light" | "dark";
+  highContrast: boolean;
+  setHighContrast: (v: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -13,6 +15,7 @@ const THEME_STORAGE_KEY = "template-theme-preferences";
 
 type ThemePreferences = {
   appearance: "light" | "dark" | "system";
+  highContrast?: boolean;
 };
 
 interface ThemeProviderProps {
@@ -36,7 +39,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     } catch {
       // ignore
     }
-    return { appearance: "system" };
+    return { appearance: "system", highContrast: false };
   });
 
   const [resolvedAppearance, setResolvedAppearance] = useState<
@@ -94,6 +97,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       }
     },
     resolvedAppearance,
+    highContrast: !!preferences.highContrast,
+    setHighContrast: (v: boolean) => {
+      setPreferences((prev) => ({ ...prev, highContrast: !!v }));
+      document.documentElement.setAttribute(
+        "data-contrast",
+        v ? "high" : "normal",
+      );
+    },
   };
 
   return (
@@ -110,6 +121,8 @@ export function useTheme() {
       appearance: "light" as const,
       setAppearance: () => {},
       resolvedAppearance: "light" as const,
+      highContrast: false,
+      setHighContrast: () => {},
     };
   }
   return context;

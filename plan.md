@@ -432,8 +432,8 @@ Current:
 - JSON round-trip works across sessions; versioned schema.
 
 Current:
-- Added worker messages for `save-weights`/`load-weights` and `get-weights`, with serialize/emit implemented; client exposes `saveWeights`/`loadWeights`/`getWeights`. Train panel includes a "Save Weights" button (download UI TBD). 🚧
-  - Models now implement `serialize()` and `load()` with per-layer weights captured (shape + data) for Softmax, MLP, and CNN. ✅
+- Save/Load wired end-to-end: Train panel now has "Save Weights" (downloads JSON snapshot) and "Load Weights" (file picker to load JSON into current model). Client and worker plumbing in place. ✅
+  - Models implement `serialize()` and `load()` with per-layer weights captured (shape + data) for Softmax, MLP, and CNN. ✅
 
 ---
 
@@ -455,6 +455,9 @@ Current:
 
 ---
 
+Current:
+- Worker visuals and confusion emissions are throttled to ≤ 4 Hz to keep UI responsive. ✅
+
 ### Phase 15 — Accessibility & UX Polish
 
 **Tasks**
@@ -467,6 +470,14 @@ Current:
 
 **DoD**
 - Lighthouse a11y ≥ 90.
+
+Current:
+- Keyboard shortcuts: Space toggles Start/Pause; S steps once when paused (in `TrainPanel`). ✅
+- ARIA/alt text: `Heatmap` uses role="img" and descriptive `aria-label`; loss mini-chart exposes `aria-label`. ✅
+- High contrast: Added persistent high-contrast toggle in `AppToolbar` via `ThemeContext` (`data-contrast=high`), with CSS overrides. ✅
+- Plain-language help: Short explanatory text added to `TrainPanel` and `AnatomyPanel`. ✅
+
+Status: Completed.
 
 ---
 
@@ -484,7 +495,10 @@ Current:
 - Failing gradient sanity test blocks PRs.
 
 Current:
-- CI configured to run lint and build, and deploy to Azure Static Web Apps on pushes/PRs. Tests to be added.
+- Added Vitest configuration (jsdom env) and test setup to pin TF.js to WASM/CPU in tests. ✅
+- Unit tests: deterministic data generator; softmax loss decreases on repeated steps with the same batch. ✅
+- Component tests: `Heatmap` renders with role="img"; mode switch retains training settings. ✅
+- Canvas fallbacks added for test environment; all tests pass locally. ✅
 
 ---
 

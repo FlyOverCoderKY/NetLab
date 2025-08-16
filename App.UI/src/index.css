@@ -95,6 +95,21 @@
   --color-accent-foreground: #ffffff;
 }
 
+/* High contrast adjustments */
+:root[data-contrast="high"] {
+  --color-panel-background: #000000;
+  --color-page-background: #000000;
+  --color-overlay-background: #000000;
+  --color-foreground: #ffffff;
+  --color-foreground-muted: #ffffff;
+  --color-foreground-subtle: #e5e7eb;
+  --color-border: #ffffff;
+  --color-border-strong: #ffffff;
+  --color-border-subtle: #ffffff;
+  --color-accent: #ffff00; /* yellow */
+  --color-accent-foreground: #000000;
+}
+
 * {
   margin: 0;
   padding: 0;

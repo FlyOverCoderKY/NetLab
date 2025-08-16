@@ -26,6 +26,10 @@ const AnatomyPanel: React.FC = () => {
   return (
     <section style={{ padding: "1rem" }}>
       <h3>Anatomy</h3>
+      <p style={{ color: "var(--color-foreground-subtle)", marginTop: 4 }}>
+        Inspect learned patterns. Each tile visualizes a weight/filter; brighter
+        pixels indicate stronger positive influence.
+      </p>
       {tiles.length === 0 ? (
         <p style={{ color: "var(--color-foreground-subtle)" }}>
           Start training to stream weight tiles.

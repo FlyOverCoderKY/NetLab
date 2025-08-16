@@ -2,6 +2,7 @@ import React from "react";
 import ModeSwitcher from "./ModeSwitcher";
 import TrainerStatus from "./TrainerStatus";
 import Tabs from "./Tabs";
+import { useTheme } from "../../context/ThemeContext";
 
 const AppToolbar: React.FC = () => {
   return (
@@ -25,6 +26,7 @@ const AppToolbar: React.FC = () => {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <ModeSwitcher />
+          <HighContrastToggle />
         </div>
         <TrainerStatus />
       </div>
@@ -34,3 +36,23 @@ const AppToolbar: React.FC = () => {
 };
 
 export default AppToolbar;
+
+const HighContrastToggle: React.FC = () => {
+  const theme = useTheme();
+  return (
+    <label
+      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+      title="High contrast mode"
+    >
+      <input
+        type="checkbox"
+        checked={theme.highContrast}
+        onChange={(e) => theme.setHighContrast(e.target.checked)}
+        aria-label="Toggle high contrast mode"
+      />
+      <span style={{ color: "var(--color-foreground-subtle)", fontSize: 12 }}>
+        High contrast
+      </span>
+    </label>
+  );
+};

@@ -33,6 +33,7 @@ let valIterator: Generator<{ x: tf.Tensor4D; y: tf.Tensor1D }> | null = null;
 import type { TeachModel } from "../models/types";
 let model: TeachModel | null = null;
 let modelInitPromise: Promise<void> | null = null;
+let lastVisualsSentAt = 0;
 
 function handleInit(payload: { backend: "webgl" | "wasm" }) {
   // Read requested backend to satisfy lint, but we force WASM in the worker
@@ -171,8 +172,12 @@ function handleStep() {
   }
   if (stepCounter % snapshotEvery === 0) {
     postMetrics();
+    // Throttle visuals/confusion to <= 4 Hz
+    const now = Date.now();
+    const shouldEmitVisuals = now - lastVisualsSentAt >= 250;
+    if (shouldEmitVisuals) lastVisualsSentAt = now;
     // Also push visuals and a lightweight accuracy estimate on snapshot
-    if (model) {
+    if (model && shouldEmitVisuals) {
       model
         .getVisuals()
         .then((v: Visuals) => {
@@ -217,7 +222,7 @@ function handleStep() {
                   const rowSum = cm[r].reduce((a, b) => a + b, 0) || 1;
                   for (let c = 0; c < size; c++) cm[r][c] = cm[r][c] / rowSum;
                 }
-                // Emit confusion once per snapshot
+                // Emit confusion once per snapshot (throttled with visuals)
                 postMessage({
                   type: "confusion",
                   payload: {
