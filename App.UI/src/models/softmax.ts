@@ -48,7 +48,46 @@ export class SoftmaxModel implements TeachModel {
   }
 
   async getVisuals(): Promise<Visuals> {
-    return {};
+    if (!this.model) return {};
+    const dense = this.model.layers.find((l) => l.getClassName() === "Dense");
+    if (!dense) return {};
+    const weights = dense.getWeights();
+    if (!weights.length) return {};
+    const kernel = weights[0] as tf.Tensor2D; // shape [784,36]
+    const arr = await kernel.array();
+    const width = 28;
+    const height = 28;
+    const numClasses = arr[0]?.length ?? 36;
+    const tiles: { name: string; grid: number[][] }[] = [];
+    for (let c = 0; c < numClasses; c++) {
+      const grid: number[][] = Array.from({ length: height }, () =>
+        Array(width).fill(0),
+      );
+      // Extract column c from kernel and map into 28x28
+      for (let i = 0; i < width * height; i++) {
+        const y = Math.floor(i / width);
+        const x = i % width;
+        grid[y][x] = arr[i][c];
+      }
+      // Normalize to 0..1 for visualization
+      let min = Infinity;
+      let max = -Infinity;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const v = grid[y][x];
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+      const range = max - min || 1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          grid[y][x] = (grid[y][x] - min) / range;
+        }
+      }
+      tiles.push({ name: `Class ${c}`, grid });
+    }
+    return { weights: tiles };
   }
 
   async serialize(): Promise<Record<string, unknown>> {

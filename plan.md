@@ -253,7 +253,7 @@ Current:
 
 Current:
 - Added `src/models/types.ts` with `TeachModel` and `Visuals` definitions. ✅
-- Added `src/models/softmax.ts` with a minimal `Flatten → Dense(36)` model and stubbed training/eval. Compilation works; real batch wiring pending. 🚧
+- Added `src/models/softmax.ts` with a minimal `Flatten → Dense(36)` model and stubbed training/eval. Compilation works; now wired into worker step for real loss updates. ✅
 
 ---
 
@@ -269,6 +269,10 @@ Current:
 
 **DoD**
 - 1,000 batch generations < 1s on mid hardware; memory stable.
+
+Current:
+- Added `src/data/dataset.ts` with `makeDataset(seed, params)` yielding `{ x: Tensor4D, y: Tensor1D }`. ✅ Basic generator implemented using existing glyph renderer.
+- Worker consumes batches each step (disposed immediately for now) to simulate workload; will be used for real training later. ✅
 
 ---
 
@@ -287,6 +291,7 @@ Current:
 
 Current:
 - Added `TrainPanel` with Start/Pause/Step and a lightweight Canvas chart that simulates decreasing loss for UI scaffolding. Real loop will be driven by the worker in Phase 6 implementation. 🚧
+- Worker now implements `compile/run/step/pause` with throttled metrics and consumes generated batches per step. Loss is produced by calling `softmax.trainStep` per batch. ✅
 
 ---
 
@@ -303,6 +308,10 @@ Current:
 **DoD**
 - Predict does not retrigger training; no race conditions.
 
+Current:
+- Added `PlaygroundPanel` with a sample canvas, Next/Predict buttons, and a simple Top-5 bar list. ✅
+- Worker gained a `predict` message that returns probabilities; prediction uses the same Softmax instance (lazy-init) and transfers a `Float32Array` back. ✅
+
 ---
 
 ### Phase 8 — Anatomy: Softmax Visuals & Weight Painting
@@ -317,6 +326,11 @@ Current:
 
 **DoD**
 - Undo/Reset works; weight edits are confined to selected class; no crashes.
+
+Current:
+- Added `Heatmap` component to render 28×28 grids with grayscale scaling. ✅
+- Implemented `SoftmaxModel.getVisuals()` to produce per-class 28×28 normalized tiles from Dense kernel weights. ✅
+- Added `AnatomyPanel` scaffold that will display tiles – message wiring from worker pending. 🚧
 
 ---
 

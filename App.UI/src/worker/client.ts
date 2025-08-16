@@ -6,6 +6,7 @@ type ListenerMap = {
   metrics: ((p: { step: number; loss: number; acc?: number }) => void)[];
   compiled: ((p: { params: number }) => void)[];
   done: (() => void)[];
+  prediction: ((p: { probs: Float32Array }) => void)[];
 };
 
 class TrainerClient {
@@ -16,6 +17,7 @@ class TrainerClient {
     metrics: [],
     compiled: [],
     done: [],
+    prediction: [],
   };
   private isDisposed = false;
 
@@ -34,6 +36,11 @@ class TrainerClient {
           break;
         case "metrics":
           this.listeners.metrics.forEach((cb) => cb(msg.payload));
+          break;
+        case "prediction":
+          this.listeners.prediction.forEach((cb) =>
+            cb(msg.payload as { probs: Float32Array }),
+          );
           break;
         case "done":
           this.listeners.done.forEach((cb) => cb());
@@ -83,6 +90,12 @@ class TrainerClient {
   pause() {
     const msg: InMsg = { type: "pause" } as InMsg;
     this.worker.postMessage(msg);
+  }
+
+  predict(x: Float32Array) {
+    const msg: InMsg = { type: "predict", payload: { x } } as InMsg;
+    // Use transfer list for performance
+    this.worker.postMessage(msg, [x.buffer]);
   }
 
   dispose() {

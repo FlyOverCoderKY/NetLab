@@ -17,6 +17,7 @@ export type InMsg =
   | { type: "pause" }
   | { type: "set-weights"; payload: unknown }
   | { type: "switch-model"; payload: { modelType: TrainConfig["modelType"] } }
+  | { type: "predict"; payload: { x: Float32Array } }
   | { type: "dispose" };
 
 export type OutMsg =
@@ -26,4 +27,5 @@ export type OutMsg =
   | { type: "visuals"; payload: unknown }
   | { type: "weights"; payload: unknown }
   | { type: "error"; payload: { message: string } }
+  | { type: "prediction"; payload: { probs: Float32Array } }
   | { type: "done"; payload?: Record<string, never> };

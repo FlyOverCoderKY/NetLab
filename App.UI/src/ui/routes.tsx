@@ -1,7 +1,9 @@
 import React from "react";
 import { useAppStore } from "../state/store";
-import DatasetPanel from "./components/DatasetPanel";
+// import DatasetPanel from "./components/DatasetPanel";
 import TrainPanel from "./components/TrainPanel";
+import PlaygroundPanel from "./components/PlaygroundPanel";
+import AnatomyPanel from "./components/AnatomyPanel";
 
 const Placeholder: React.FC<{ title: string }> = ({ title }) => (
   <section style={{ padding: "1rem" }}>
@@ -14,11 +16,11 @@ export const RoutesView: React.FC = () => {
   const tab = useAppStore((s) => s.tab);
   switch (tab) {
     case "playground":
-      return <DatasetPanel />;
+      return <PlaygroundPanel />;
     case "train":
       return <TrainPanel />;
     case "anatomy":
-      return <Placeholder title="Anatomy" />;
+      return <AnatomyPanel />;
     case "math":
       return <Placeholder title="Math" />;
     default:
