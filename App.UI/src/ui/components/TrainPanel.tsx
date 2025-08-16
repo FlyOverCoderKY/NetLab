@@ -51,7 +51,6 @@ const TrainPanel: React.FC = () => {
         // Expecting shape { name: string, inputShape: number[], layers: [...] }
         getTrainerClient().loadWeights(json);
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Failed to parse weights JSON", err);
       } finally {
         e.target.value = ""; // reset to allow re-upload same file
