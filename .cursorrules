@@ -1,0 +1,16 @@
+# Cursor Rules for NetLab Project
+
+## Auto Mode Model Reporting
+When using auto mode, always report which model was used to generate a response. This helps with transparency and debugging.
+
+## Command Execution
+All terminal commands should be run as PowerShell commands, not bash commands. This project runs on Windows with PowerShell as the shell.
+
+## Project Context
+This is a NetLab project with a React TypeScript frontend (App.UI) that includes machine learning components, OCR functionality, and various UI panels for data visualization and model training.
+
+## Code Style
+- Use TypeScript for all new code
+- Follow React best practices
+- Maintain consistent formatting and naming conventions
+- Include proper error handling and type safety
