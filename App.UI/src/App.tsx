@@ -5,8 +5,8 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { detectWasmCapabilities, initTFBackend } from "./utils/tf";
 import { useAppStore } from "./state/store";
-import AppToolbar from "./ui/components/AppToolbar";
-import { RoutesView } from "./ui/routes";
+import TopNav from "./ui/components/TopNav";
+import AppRouter from "./app/router";
 
 function App() {
   const [backend, setBackend] = useState<string>("");
@@ -46,9 +46,9 @@ function App() {
             title="Neural Network Visualizer"
             subtitle="Visualize the output of a neural network"
           />
-          <AppToolbar />
+          <TopNav />
           <main style={{ flex: 1 }}>
-            <RoutesView />
+            <AppRouter />
           </main>
           <Footer backend={backend} />
         </div>
