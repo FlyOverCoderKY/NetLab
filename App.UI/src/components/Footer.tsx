@@ -22,6 +22,34 @@ const Footer: React.FC<FooterProps> = () => {
           </a>
           . All rights reserved.
         </p>
+        <nav className="site-footer__links" aria-label="Footer navigation">
+          <a
+            href="https://www.flyovercoder.com/terms"
+            className="site-footer__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Terms & Conditions
+          </a>
+          <span className="site-footer__separator">|</span>
+          <a
+            href="https://www.flyovercoder.com/privacy"
+            className="site-footer__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Privacy Policy
+          </a>
+          <span className="site-footer__separator">|</span>
+          <a
+            href="https://bugs.flyovercoder.com/?p=netlab"
+            className="site-footer__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Report an Issue
+          </a>
+        </nav>
       </div>
     </footer>
   );
